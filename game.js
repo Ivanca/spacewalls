@@ -5,7 +5,7 @@ let snakeDirs = [];
 let	dir;
 const walls = [];
 let wallCount = 0;
-const maxWalls = 6;
+const maxWalls = 3;
 let moveTimer = 0;
 const moveDelay = 0.012;
 let gameOver = false;
@@ -13,8 +13,11 @@ let stations = [];
 let invaders = [];
 let lasers = [];
 let spawnTimer = 0;
+let totalSpawned = 0;
+const maxInvaders = 600;
 let justChangedDirFrom = null;
 let mustSolidifyNextTick = false;
+let gameWon = false;
 // --- Sounds ---
 const und = undefined;
 const sWall = new Sound([und, und, 120, und, 0.05, 0.2, 2, 1, und, und, 80, 0.05]);
@@ -88,7 +91,7 @@ function startNewSnake() {
 
 	dir = vec2(1, 0);
 	snakeDirs = [];
-	for (let i = 0; i < 50; i++) {
+	for (let i = 0; i < 90; i++) {
 		snake.push(start.subtract(vec2(i * 2, 0).scale(0.1)));
 		snakeDirs.push(dir.copy());
 	}
@@ -96,16 +99,55 @@ function startNewSnake() {
 
 function createStations() {
 	const center = worldSize.scale(0.5);
-	stations = [
-		{pos: center.add(vec2(-4, 0)), hp: 10, maxHp: 10},
-		{pos: center, hp: 10, maxHp: 10},
-		{pos: center.add(vec2(4, 0)), hp: 10, maxHp: 10},
-	];
+	const stationCount = 5;
+	const minDistance = 7;
+	const maxDistance = 11;
+	const minDistanceBetweenStations = 5;
+
+	stations = [];
+	const maxAttempts = 1000;
+
+	for (let i = 0; i < stationCount; i++) {
+		let placed = false;
+		for (let attempt = 0; attempt < maxAttempts; attempt++) {
+			const angle = rand(0, Math.PI * 2);
+			const distance = rand(minDistance, maxDistance);
+			const offset = vec2(Math.cos(angle) * distance, Math.sin(angle) * distance);
+			const pos = center.add(offset);
+
+			// Ensure within world bounds
+			if (pos.x < 1 || pos.x > worldSize.x - 1 || pos.y < 1 || pos.y > worldSize.y - 1) {
+				continue;
+			}
+
+			// Ensure minimum distance from other stations
+			let tooClose = false;
+			for (const s of stations) {
+				if (pos.distance(s.pos) < minDistanceBetweenStations) {
+					tooClose = true;
+					break;
+				}
+			}
+
+			if (!tooClose) {
+				stations.push({pos, hp: 10, maxHp: 10});
+				placed = true;
+				break;
+			}
+		}
+
+		if (!placed) {
+			// Fallback: place at a random angle with minDistance
+			const angle = rand(0, Math.PI * 2);
+			const pos = center.add(vec2(Math.cos(angle) * minDistance, Math.sin(angle) * minDistance));
+			stations.push({pos, hp: 10, maxHp: 10});
+		}
+	}
 }
 
 // --- Update ---
 function gameUpdate() {
-	if (gameOver) {
+	if (gameOver || gameWon) {
 		return;
 	}
 
@@ -123,8 +165,8 @@ function gameUpdate() {
 
 		if ((keyWasPressed('Space') || mustSolidifyNextTick) && wallCount < maxWalls) {
 			const newWall = [];
-			positionLogic(snake, snakeDirs, (pos, thickness, color) => {
-				newWall.push({pos, thickness, color});
+			positionLogic(snake, snakeDirs, (pos, size, color) => {
+				newWall.push({pos, size, color});
 			});
 			walls.push(newWall);
 			wallCount++;
@@ -141,10 +183,12 @@ function gameUpdate() {
 	}
 
 	if (wallCount >= maxWalls) {
-		spawnTimer -= timeDelta;
-		if (spawnTimer <= 0) {
-			spawnTimer = 0.5;
-			spawnInvader();
+		if (totalSpawned < maxInvaders) {
+			spawnTimer -= timeDelta;
+			if (spawnTimer <= 0) {
+				spawnTimer = 0.15;
+				spawnInvader();
+			}
 		}
 
 		updateInvaders();
@@ -153,11 +197,28 @@ function gameUpdate() {
 		if (mouseWasPressed(0)) {
 			shootLaser();
 		}
+
+		if (totalSpawned >= maxInvaders && invaders.length === 0 && stations.some(s => s.hp > 0)) {
+			gameWon = true;
+		}
 	}
 
 	if (stations.every(s => s.hp <= 0)) {
 		gameOver = true;
 	}
+}
+
+function hasClearShot(stationPos, target) {
+	const start = stationPos.add(vec2(0.5, 0.5));
+	for (const w of walls) {
+		for (const p of w) {
+			if (isIntersecting(start, target, p.pos, p.size)) {
+				return false;
+			}
+		}
+	}
+
+	return true;
 }
 
 function shootLaser() {
@@ -166,9 +227,14 @@ function shootLaser() {
 		return;
 	}
 
-	let best = alive[0];
+	// Find stations with a clear shot to the mouse
+	const clearShot = alive.filter(s => hasClearShot(s.pos, mousePos));
+
+	// Pick closest among clear-shot stations, or fall back to closest overall
+	const candidates = clearShot.length ? clearShot : alive;
+	let best = candidates[0];
 	let minDist = mousePos.distance(best.pos);
-	for (const s of alive) {
+	for (const s of candidates) {
 		const d = mousePos.distance(s.pos);
 		if (d < minDist) {
 			minDist = d;
@@ -186,25 +252,30 @@ function updateLasers() {
 		l.pos = l.pos.add(l.vel);
 
 		// Collide with walls
-		for (const w of walls) {
-			for (const p of w) {
-				if (l.pos.distance(p.pos) < 0.6) {
-					l.hit = true;
-				}
-			}
+		const hit = handleCollisionWithWalls(l.pos, vec2(0.3, 0.3));
+		if (hit) {
+			l.hit = true;
+			sWall.play(l.pos);
 		}
 
 		// Collide with invaders
 		for (const inv of invaders) {
 			if (l.pos.distance(inv.pos) < 1) {
-				inv.hp--;
+				inv.hp -= 2;
 				l.hit = true;
 				sHit.play(inv.pos);
 			}
 		}
 	}
 
-	lasers = lasers.filter(l => !l.hit && l.pos.x > -2 && l.pos.x < worldSize.x + 2 && l.pos.y > -2 && l.pos.y < worldSize.y + 2);
+	lasers = lasers.filter(({hit, pos}) => {
+		const {x, y} = pos;
+		if (hit) {
+			return false;
+		}
+
+		return x > -2 && x < worldSize.x + 2 && y > -2 && y < worldSize.y + 2;
+	});
 	invaders = invaders.filter(i => i.hp > 0);
 }
 
@@ -229,8 +300,9 @@ function spawnInvader() {
 	}
 
 	invaders.push({
-		pos, size: vec2(2, 2), hp: 4, maxHp: 4,
+		pos, size: vec2(1, 1), hp: 1, maxHp: 1,
 	});
+	totalSpawned++;
 }
 
 function updateInvaders() {
@@ -260,23 +332,35 @@ function updateInvaders() {
 		}
 
 		const pointsCrashed = [];
-		for (const w of walls) {
-			const index = walls.indexOf(w);
-			for (const p of w) {
-				if (isOverlapping(inv.pos, inv.size, p.pos, p.thickness)) {
-					inv.hp = 0;
-					pointsCrashed.push({index, p});
-				}
-			}
-		}
-
-		// Remove all segments that were crashed on this tick
-		for (const sc of pointsCrashed) {
-			const {index} = sc;
-			walls[index] = walls[index].filter(p => p !== sc.p);
+		const collided = handleCollisionWithWalls(inv.pos, inv.size, pointsCrashed);
+		if (collided) {
+			inv.hp = 0;
 		}
 	}
 }
+
+const handleCollisionWithWalls = (pos, size) => {
+	const pointsCrashed = [];
+	for (const w of walls) {
+		const index = walls.indexOf(w);
+		for (const p of w) {
+			if (isOverlapping(pos, size, p.pos, p.size)) {
+				pointsCrashed.push({index, p});
+			}
+		}
+	}
+
+	for (const sc of pointsCrashed) {
+		const {index} = sc;
+		walls[index] = walls[index].filter(p => p !== sc.p);
+	}
+
+	if (pointsCrashed.length) {
+		return true;
+	}
+
+	return false;
+};
 
 function moveSnake() {
 	let head = snake[0].add(dir.scale(0.2));
@@ -317,22 +401,22 @@ function moveSnake() {
 		return;
 	}
 
-	for (const s of snake) {
-		if (s.x === head.x && s.y === head.y) {
-			mustSolidifyNextTick = true;
-			return;
-		}
-	}
+	// for (const s of snake) {
+	// 	if (s.x === head.x && s.y === head.y) {
+	// 		mustSolidifyNextTick = true;
+	// 		return;
+	// 	}
+	// }
 
-	positionLogic(snake, snakeDirs, (pos, thickness) => {
-		for (const w of walls) {
-			for (const p of w) {
-				if (isOverlapping(pos, thickness, p.pos, p.thickness)) {
-					mustSolidifyNextTick = true;
-				}
-			}
-		}
-	});
+	// positionLogic(snake, snakeDirs, (pos, size) => {
+	// 	for (const w of walls) {
+	// 		for (const p of w) {
+	// 			if (isOverlapping(pos, size, p.pos, p.size)) {
+	// 				mustSolidifyNextTick = true;
+	// 			}
+	// 		}
+	// 	}
+	// });
 
 	snake.unshift(head);
 	snakeDirs.unshift(dir.copy());
@@ -346,7 +430,7 @@ const positionLogic = (snakePos, snakeDir, callback) => {
 		const dir = snakeDir[i];
 		for (let j = 0; j < 5; j++) {
 			const color = i % 2 ? [YELLOW, BLUE, GREEN, WHITE, ORANGE][j] : [ORANGE, WHITE, GREEN, BLUE, YELLOW][j];
-			const thickness = vec2(0.2);
+			const size = vec2(0.2);
 			const extra
 				= dir.y === 1
 					? vec2(j * 0.2, 0)
@@ -356,7 +440,7 @@ const positionLogic = (snakePos, snakeDir, callback) => {
 							? vec2(0, j * 0.2)
 							: vec2(0, j * 0.2);
 			const newPos = pos.add(vec2(0.5)).add(extra);
-			callback(newPos, thickness, color);
+			callback(newPos, size, color);
 		}
 	}
 };
@@ -383,13 +467,13 @@ function gameRender() {
 
 	for (const w of walls) {
 		for (const p of w) {
-			drawRect(p.pos, p.thickness, rgb(0.5, 0.5, 0.5));
+			drawRect(p.pos, p.size, rgb(0.5, 0.5, 0.5));
 		}
 	}
 
 	if (snake) {
-		positionLogic(snake, snakeDirs, (pos, thickness, color) => {
-			drawRect(pos, thickness, color);
+		positionLogic(snake, snakeDirs, (pos, size, color) => {
+			drawRect(pos, size, color);
 		});
 		// Draw for debugging
 		// drawRect(snake[0].add(vec2(-4.4, 1)), vec2(20, 1.2), YELLOW);
@@ -397,27 +481,26 @@ function gameRender() {
 
 	for (const inv of invaders) {
 		drawRect(inv.pos, inv.size, rgb(1, 0.2, 0.2));
-
-		const hpPercent = clamp(inv.hp / inv.maxHp, 0, 1);
-		const barWidth = inv.size.x;
-		const barPos = inv.pos.add(vec2(0, inv.size.y / 2));
-		drawRect(barPos, vec2(barWidth, 0.2), rgb(0.2, 0.2, 0.2));
-		drawRect(barPos.add(vec2(-(barWidth * (1 - hpPercent)) / 2, 0)), vec2(barWidth * hpPercent, 0.2), rgb(0.2, 1, 0.2));
 	}
 
 	for (const l of lasers) {
-		drawRect(l.pos, vec2(0.3, 0.6), rgb(1, 1, 0.3));
+		drawRect(l.pos, vec2(0.3, 0.3), rgb(1, 1, 0.3));
 	}
 }
 
 function gameRenderPost() {
 	drawTextScreen('Walls: ' + wallCount + '/' + maxWalls, vec2(200, 40), 30);
 	if (wallCount >= maxWalls) {
-		drawTextScreen('INVASION!', vec2(mainCanvasSize.x / 2, 60), 40);
+		const enemiesLeft = (maxInvaders - totalSpawned) + invaders.length;
+		drawTextScreen('INVASION!  Enemies left: ' + enemiesLeft, vec2(mainCanvasSize.x / 2, 60), 40);
 	}
 
 	if (gameOver) {
 		drawTextScreen('GAME OVER', mainCanvasSize.scale(0.5), 80);
+	}
+
+	if (gameWon) {
+		drawTextScreen('YOU WIN!', mainCanvasSize.scale(0.5), 80);
 	}
 }
 
