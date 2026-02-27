@@ -1,11 +1,12 @@
 // --- Globals ---
 const worldSize = vec2(50, 38);
+const stationSize = vec2(3, 2);
 let snake = null;
 let snakeDirs = [];
 let	dir;
 const walls = [];
 let wallCount = 0;
-const maxWalls = 3;
+let maxWalls = 3;
 let moveTimer = 0;
 const moveDelay = 0.012;
 let gameOver = false;
@@ -15,14 +16,17 @@ let lasers = [];
 let spawnTimer = 0;
 let totalSpawned = 0;
 const maxInvaders = 600;
+let killScore = 0;
+let buildingPhase = false;
 let justChangedDirFrom = null;
 let mustSolidifyNextTick = false;
 let gameWon = false;
+let gamePaused = false;
 // --- Sounds ---
 const und = undefined;
-const sWall = new Sound([und, und, 120, und, 0.05, 0.2, 2, 1, und, und, 80, 0.05]);
-const sHit = new Sound([und, und, 300, und, 0.02, 0.1, 4, 2, und, und, 200, 0.02]);
-const sLaser = new Sound([und, und, 700, und, 0.01, 0.05, 2, 2, und, und, 500, 0.01]);
+const sWall = new Sound([0.1, und, 120, und, 0.05, 0.2, 2, 1, und, und, 80, 0.05]);
+const sHit = new Sound([0.1, und, 300, und, 0.02, 0.1, 4, 2, und, und, 200, 0.02]);
+const sLaser = new Sound([0.1, und, 537, 0.02, 0.02, 0.22, 1, 1.59, -6.98, 4.97]);
 
 // --- Init ---
 function gameInit() {
@@ -130,7 +134,9 @@ function createStations() {
 			}
 
 			if (!tooClose) {
-				stations.push({pos, hp: 10, maxHp: 10});
+				stations.push({
+					pos, hp: 10, maxHp: 10, vel: vec2(0, 0),
+				});
 				placed = true;
 				break;
 			}
@@ -140,39 +146,89 @@ function createStations() {
 			// Fallback: place at a random angle with minDistance
 			const angle = rand(0, Math.PI * 2);
 			const pos = center.add(vec2(Math.cos(angle) * minDistance, Math.sin(angle) * minDistance));
-			stations.push({pos, hp: 10, maxHp: 10});
+			stations.push({
+				pos, hp: 10, maxHp: 10, vel: vec2(0, 0),
+			});
 		}
 	}
 }
 
 // --- Update ---
+
+function updateSnakeMovement() {
+	const input = keyDirection();
+	if (input.x && !dir.x) {
+		justChangedDirFrom = dir.copy();
+		dir = vec2(sign(input.x), 0);
+	} else if (input.y && !dir.y) {
+		justChangedDirFrom = dir.copy();
+		dir = vec2(0, sign(input.y));
+	}
+}
+
+function solidifyWall() {
+	const newWall = [];
+	positionLogic(snake, snakeDirs, (pos, size, color, isCenter) => {
+		newWall.push({
+			pos, size, color, isCenter,
+		});
+	});
+	walls.push(newWall);
+	wallCount++;
+	sWall.play();
+	startNewSnake();
+	mustSolidifyNextTick = false;
+	if (buildingPhase) {
+		buildingPhase = false;
+		killScore = 0;
+	}
+}
+
+function updateInvasionPhase() {
+	if (totalSpawned < maxInvaders) {
+		spawnTimer -= timeDelta;
+		if (spawnTimer <= 0) {
+			spawnTimer = 0.15;
+			spawnInvader();
+		}
+	}
+
+	if (totalSpawned >= maxInvaders && invaders.length === 0 && stations.some(s => s.hp > 0)) {
+		gameWon = true;
+		gamePaused = true;
+		return;
+	}
+
+	updateInvaders();
+	updateLasers();
+
+	if (mouseWasPressed(0)) {
+		shootLaser();
+	}
+
+	if (killScore >= 200 && totalSpawned < maxInvaders) {
+		buildingPhase = true;
+		maxWalls++;
+		setTimeout(() => {
+			startNewSnake();
+		}, 2500);
+	}
+}
+
 function gameUpdate() {
-	if (gameOver || gameWon) {
+	if (!gameOver && !gameWon && keyWasPressed('Escape')) {
+		gamePaused = !gamePaused;
+	}
+
+	if (gamePaused) {
 		return;
 	}
 
 	if (snake) {
-		const input = keyDirection();
-		if (input.x && !dir.x) {
-			justChangedDirFrom = dir.copy();
-			dir = vec2(sign(input.x), 0);
-		}
-
-		if (input.y && !dir.y) {
-			justChangedDirFrom = dir.copy();
-			dir = vec2(0, sign(input.y));
-		}
+		updateSnakeMovement();
 
 		if ((keyWasPressed('Space') || mustSolidifyNextTick) && wallCount < maxWalls) {
-			const newWall = [];
-			positionLogic(snake, snakeDirs, (pos, size, color) => {
-				newWall.push({pos, size, color});
-			});
-			walls.push(newWall);
-			wallCount++;
-			sWall.play();
-			startNewSnake();
-			mustSolidifyNextTick = false;
+			solidifyWall();
 		}
 
 		moveTimer -= timeDelta;
@@ -183,28 +239,208 @@ function gameUpdate() {
 	}
 
 	if (wallCount >= maxWalls) {
-		if (totalSpawned < maxInvaders) {
-			spawnTimer -= timeDelta;
-			if (spawnTimer <= 0) {
-				spawnTimer = 0.15;
-				spawnInvader();
-			}
-		}
-
-		updateInvaders();
-		updateLasers();
-
-		if (mouseWasPressed(0)) {
-			shootLaser();
-		}
-
-		if (totalSpawned >= maxInvaders && invaders.length === 0 && stations.some(s => s.hp > 0)) {
-			gameWon = true;
-		}
+		updateInvasionPhase();
 	}
+
+	updateStations();
 
 	if (stations.every(s => s.hp <= 0)) {
 		gameOver = true;
+		gamePaused = true;
+	}
+}
+
+function updateStations() {
+	const damping = 0.93 ** (timeDelta * 60);
+	const restitution = 0.85;
+	const stopEpsilon = 0.001;
+
+	const halfW = stationSize.x / 2;
+	const halfH = stationSize.y / 2;
+
+	// Smaller than wall tile size (snake wall tiles are 0.2)
+	const maxMovePerStep = 0.08;
+	const maxWallSolveIterations = 10;
+	const bias = 0.0005;
+
+	const resolveWorldBounds = s => {
+		const center = s.pos.add(vec2(0.5, 0.5));
+
+		if (center.x - halfW < 0) {
+			center.x = halfW;
+			s.pos.x = center.x - 0.5;
+			if (s.vel.x < 0) {
+				s.vel.x = -s.vel.x * restitution;
+			}
+		} else if (center.x + halfW > worldSize.x) {
+			center.x = worldSize.x - halfW;
+			s.pos.x = center.x - 0.5;
+			if (s.vel.x > 0) {
+				s.vel.x = -s.vel.x * restitution;
+			}
+		}
+
+		if (center.y - halfH < 0) {
+			center.y = halfH;
+			s.pos.y = center.y - 0.5;
+			if (s.vel.y < 0) {
+				s.vel.y = -s.vel.y * restitution;
+			}
+		} else if (center.y + halfH > worldSize.y) {
+			center.y = worldSize.y - halfH;
+			s.pos.y = center.y - 0.5;
+			if (s.vel.y > 0) {
+				s.vel.y = -s.vel.y * restitution;
+			}
+		}
+	};
+
+	const resolveWallsIterative = s => {
+		const otherStations = stations.filter(st => st !== s && st.hp > 0).map(st => ({pos: st.pos, size: stationSize}));
+		const wallPieces = walls.flat();
+		const validObstacles = [...wallPieces, ...otherStations];
+
+		for (let iter = 0; iter < maxWallSolveIterations; iter++) {
+			const center = s.pos.add(vec2(0.5, 0.5));
+
+			const overlapping = validObstacles.filter(p => isOverlapping(center, stationSize, p.pos, p.size));
+			if (!overlapping.length) {
+				break;
+			}
+
+			// Use the centroid of overlapping isCenter pieces to determine push axis & sign.
+			// This reliably resolves cases where a wall is built straight through the station,
+			// since the diff from centroid -> station center points toward the larger open area.
+			const centerPieces = overlapping.filter(p => p.isCenter);
+			let preferredAxis = null;
+			let preferredSign = 0;
+
+			if (centerPieces.length > 0) {
+				let cx = 0;
+				let cy = 0;
+				for (const p of centerPieces) {
+					cx += p.pos.x;
+					cy += p.pos.y;
+				}
+
+				cx /= centerPieces.length;
+				cy /= centerPieces.length;
+
+				// Vector from wall-center centroid to station center
+				const diffX = center.x - cx;
+				const diffY = center.y - cy;
+
+				if (Math.abs(diffX) >= Math.abs(diffY)) {
+					preferredAxis = 'x';
+					preferredSign = Math.sign(diffX) || 1;
+				} else {
+					preferredAxis = 'y';
+					preferredSign = Math.sign(diffY) || 1;
+				}
+			}
+
+			// Find the deepest overlap to resolve this iteration, constrained to the
+			// preferred axis/sign when available.
+			let bestMtv = null;
+			let bestDepth = -Infinity;
+
+			for (const p of overlapping) {
+				const dx = center.x - p.pos.x;
+				const dy = center.y - p.pos.y;
+				const overlapX = (halfW + (p.size.x / 2)) - Math.abs(dx);
+				const overlapY = (halfH + (p.size.y / 2)) - Math.abs(dy);
+
+				if (overlapX <= 0 || overlapY <= 0) {
+					continue;
+				}
+
+				if (otherStations.includes(p)) {
+					// If colliding with another station, push it away from us as well.
+					const otherStation = stations.find(st => st.pos === p.pos);
+					const pushDir = p.pos.subtract(center).normalize();
+					otherStation.vel = otherStation.vel.add(pushDir.scale(1.05));
+					sHit.play(otherStation.pos);
+				}
+
+				let mtv;
+				let depth;
+
+				if (preferredAxis === 'x') {
+					mtv = vec2(preferredSign * overlapX, 0);
+					depth = overlapX;
+				} else if (preferredAxis === 'y') {
+					mtv = vec2(0, preferredSign * overlapY);
+					depth = overlapY;
+				} else if (overlapX < overlapY) {
+					const sx = dx >= 0 ? 1 : -1;
+					mtv = vec2(sx * overlapX, 0);
+					depth = overlapX;
+				} else {
+					const sy = dy >= 0 ? 1 : -1;
+					mtv = vec2(0, sy * overlapY);
+					depth = overlapY;
+				}
+
+				if (depth > bestDepth) {
+					bestDepth = depth;
+					bestMtv = mtv;
+				}
+			}
+
+			if (!bestMtv) {
+				break;
+			}
+
+			const push = vec2(
+				bestMtv.x + (bestMtv.x ? Math.sign(bestMtv.x) * bias : 0),
+				bestMtv.y + (bestMtv.y ? Math.sign(bestMtv.y) * bias : 0),
+			);
+			s.pos = s.pos.add(push);
+
+			// Reflect velocity along push axis if it opposes the push
+			if (bestMtv.x) {
+				const nx = Math.sign(bestMtv.x);
+				if (s.vel.x * nx < 0) {
+					s.vel.x = -s.vel.x * restitution;
+				}
+			} else if (bestMtv.y) {
+				const ny = Math.sign(bestMtv.y);
+				if (s.vel.y * ny < 0) {
+					s.vel.y = -s.vel.y * restitution;
+				}
+			}
+
+			// Wall correction can push near/outside bounds
+			resolveWorldBounds(s);
+		}
+	};
+
+	for (const s of stations) {
+		// Always run a resolution pass so stations embedded by a freshly placed
+		// wall (zero velocity) are immediately pushed out in the right direction.
+		resolveWallsIterative(s);
+		resolveWorldBounds(s);
+
+		if (s.vel.length() < stopEpsilon) {
+			s.vel = vec2(0, 0);
+			continue;
+		}
+
+		const speed = s.vel.length();
+		const totalMove = speed * timeDelta;
+		const steps = Math.max(1, Math.ceil(totalMove / maxMovePerStep));
+		const subDt = timeDelta / steps;
+
+		for (let i = 0; i < steps; i++) {
+			s.pos = s.pos.add(s.vel.scale(subDt));
+			resolveWorldBounds(s);
+			resolveWallsIterative(s);
+		}
+
+		s.vel = s.vel.scale(damping);
+		if (s.vel.length() < stopEpsilon) {
+			s.vel = vec2(0, 0);
+		}
 	}
 }
 
@@ -260,8 +496,13 @@ function updateLasers() {
 
 		// Collide with invaders
 		for (const inv of invaders) {
-			if (l.pos.distance(inv.pos) < 1) {
+			if (l.pos.distance(inv.pos) < 0.5) {
+				const wasAlive = inv.hp > 0;
 				inv.hp -= 2;
+				if (wasAlive && inv.hp <= 0) {
+					killScore++;
+				}
+
 				l.hit = true;
 				sHit.play(inv.pos);
 			}
@@ -300,7 +541,7 @@ function spawnInvader() {
 	}
 
 	invaders.push({
-		pos, size: vec2(1, 1), hp: 1, maxHp: 1,
+		pos, size: vec2(1, 1), hp: 1, maxHp: 1, frame: 0, dir: vec2(0, 0),
 	});
 	totalSpawned++;
 }
@@ -322,11 +563,19 @@ function updateInvaders() {
 			}
 		}
 
-		const dirTo = nearest.pos.subtract(inv.pos).normalize(0.05);
-		inv.pos = inv.pos.add(dirTo);
+		inv.targetPos ||= nearest.pos.copy();
 
-		if (inv.pos.distance(nearest.pos) < 1.5) {
+		inv.targetPos = inv.targetPos.lerp(nearest.pos, 0.12);
+
+		const dirTo = inv.targetPos.subtract(inv.pos).normalize(0.05);
+		inv.pos = inv.pos.add(dirTo);
+		inv.dir = dirTo;
+
+		if (isOverlapping(inv.pos, inv.size, nearest.pos, stationSize)) {
 			nearest.hp--;
+			// Push station away from invader
+			const pushDir = nearest.pos.subtract(inv.pos).normalize();
+			nearest.vel = nearest.vel.add(pushDir.scale(1.05));
 			inv.hp = 0;
 			sHit.play();
 		}
@@ -334,6 +583,7 @@ function updateInvaders() {
 		const pointsCrashed = [];
 		const collided = handleCollisionWithWalls(inv.pos, inv.size, pointsCrashed);
 		if (collided) {
+			killScore++;
 			inv.hp = 0;
 		}
 	}
@@ -401,7 +651,7 @@ function moveSnake() {
 		return;
 	}
 
-	// for (const s of snake) {
+	// For (const s of snake) {
 	// 	if (s.x === head.x && s.y === head.y) {
 	// 		mustSolidifyNextTick = true;
 	// 		return;
@@ -429,7 +679,7 @@ const positionLogic = (snakePos, snakeDir, callback) => {
 		const pos = snakePos[i];
 		const dir = snakeDir[i];
 		for (let j = 0; j < 5; j++) {
-			const color = i % 2 ? [YELLOW, BLUE, GREEN, WHITE, ORANGE][j] : [ORANGE, WHITE, GREEN, BLUE, YELLOW][j];
+			const color = WHITE;
 			const size = vec2(0.2);
 			const extra
 				= dir.y === 1
@@ -440,7 +690,7 @@ const positionLogic = (snakePos, snakeDir, callback) => {
 							? vec2(0, j * 0.2)
 							: vec2(0, j * 0.2);
 			const newPos = pos.add(vec2(0.5)).add(extra);
-			callback(newPos, size, color);
+			callback(newPos, size, color, j === 2);
 		}
 	}
 };
@@ -450,19 +700,8 @@ function gameRender() {
 	drawRect(cameraPos, worldSize, rgb(0.05, 0.05, 0.08));
 
 	for (const s of stations) {
-		const bodyColor = s.hp > 0 ? rgb(0.8, 0.8, 1) : rgb(0.3, 0.3, 0.3);
-		drawRect(s.pos.add(vec2(0.5)), vec2(3, 2), bodyColor);
-
-		// Health bar
-		const barWidth = 3;
-		const hpPercent = clamp(s.hp / s.maxHp, 0, 1);
-		const barPos = s.pos.add(vec2(0.5, 2));
-		drawRect(barPos, vec2(barWidth, 0.3), rgb(0.2, 0.2, 0.2));
-		drawRect(barPos.add(vec2(-(barWidth * (1 - hpPercent)) / 2, 0)), vec2(barWidth * hpPercent, 0.3), rgb(0.2, 1, 0.2));
-
-		if (s.hp > 0) {
-			drawLine(s.pos.add(vec2(0.5)), mousePos, 0.1, rgb(1, 1, 0.3));
-		}
+		const imgIndex = s.hp > 0 ? imgs.spaceStation.index : imgs.deadSpaceStation.index;
+		drawTile(s.pos.add(vec2(0.5)), stationSize, tile(0, vec2(94, 60), imgIndex), WHITE);
 	}
 
 	for (const w of walls) {
@@ -479,20 +718,51 @@ function gameRender() {
 		// drawRect(snake[0].add(vec2(-4.4, 1)), vec2(20, 1.2), YELLOW);
 	}
 
+	const frame = Math.floor(Date.now() / 200) % 4;
+
 	for (const inv of invaders) {
-		drawRect(inv.pos, inv.size, rgb(1, 0.2, 0.2));
+		// Rotate it 90 extra
+		const angle = Math.atan2(-inv.dir.y, inv.dir.x) - (Math.PI / 2);
+		inv.frameOffset ||= frame;
+		if (!gamePaused) {
+			inv.frame = (inv.frameOffset + frame) % 3;
+		}
+		// DrawRect(inv.pos, inv.size, rgb(1, 0.2, 0.2));
+
+		drawTile(inv.pos, inv.size, tile(
+			inv.frame,
+			vec2(100, 100),
+			imgs.invader.index,
+		), WHITE, angle);
 	}
 
 	for (const l of lasers) {
-		drawRect(l.pos, vec2(0.3, 0.3), rgb(1, 1, 0.3));
+		const angle = Math.atan2(-l.vel.y, l.vel.x);
+		// DrawRect(l.pos, vec2(0.3, 0.3), rgb(1, 1, 0.3));
+		drawTile(l.pos, vec2(0.3, 0.3), tile(0, vec2(24, 24), imgs.bullet.index), WHITE, angle);
+	}
+
+	for (const s of stations) {
+		if (wallCount >= maxWalls || buildingPhase) {
+			const barWidth = 3;
+			const hpPercent = clamp(s.hp / s.maxHp, 0, 1);
+			const barPos = s.pos.add(vec2(0.5, 2));
+			drawRect(barPos, vec2(barWidth, 0.3), rgb(0.2, 0.2, 0.2));
+			drawRect(barPos.add(vec2(-(barWidth * (1 - hpPercent)) / 2, 0)), vec2(barWidth * hpPercent, 0.3), rgb(0.2, 1, 0.2));
+		}
 	}
 }
 
 function gameRenderPost() {
 	drawTextScreen('Walls: ' + wallCount + '/' + maxWalls, vec2(200, 40), 30);
-	if (wallCount >= maxWalls) {
+	if (wallCount >= maxWalls || buildingPhase) {
 		const enemiesLeft = (maxInvaders - totalSpawned) + invaders.length;
 		drawTextScreen('INVASION!  Enemies left: ' + enemiesLeft, vec2(mainCanvasSize.x / 2, 60), 40);
+		drawTextScreen('Kills for bonus: ' + killScore + '/200', vec2(mainCanvasSize.x / 2, 100), 30);
+	}
+
+	if (buildingPhase) {
+		drawTextScreen('YOU EARNED AN EXTRA WALL!', vec2(mainCanvasSize.x / 2, (mainCanvasSize.y / 2) - 40), 60);
 	}
 
 	if (gameOver) {
@@ -504,4 +774,18 @@ function gameRenderPost() {
 	}
 }
 
-engineInit(gameInit, gameUpdate, 0, gameRender, gameRenderPost);
+const imgs = {
+	invader: {src: 'images/invader-90x90.png'},
+	spaceStation: {src: 'images/space-station-94x60.png'},
+	deadSpaceStation: {src: 'images/dead-space-station-94x60.png'},
+	bullet: {src: 'images/bullet-24x24.png'},
+};
+const imagesSrcArray = [];
+let index = 0;
+for (const key of Object.keys(imgs)) {
+	imagesSrcArray[index] = imgs[key].src;
+	imgs[key].index = index;
+	index++;
+}
+
+engineInit(gameInit, gameUpdate, 0, gameRender, gameRenderPost, imagesSrcArray);
