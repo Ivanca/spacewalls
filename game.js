@@ -1,10 +1,27 @@
+import {
+	vec2, rgb, WHITE, BLACK,
+	rand, randInt, sign, clamp,
+	isOverlapping, isIntersecting,
+	timeDelta, time,
+	getPaused, setPaused,
+	cameraPos, setCameraPos, setCameraScale,
+	keyDirection, keyWasPressed,
+	mouseIsDown, mousePos,
+	drawRect, drawTile, drawTextScreen,
+	tile,
+	mainCanvasSize, mainContext,
+	Sound,
+	engineInit,
+} from './littlejs.esm.js';
+
 // --- Globals ---
 const worldSize = vec2(50, 38);
 const stationSize = vec2(3, 2);
+const extraWallScore = 120;
 let snake = null;
 let snakeDirs = [];
 let	dir;
-const walls = [];
+let walls = [];
 let wallCount = 0;
 let maxWalls = 3;
 let moveTimer = 0;
@@ -12,7 +29,9 @@ const moveDelay = 0.012;
 let gameOver = false;
 let stations = [];
 let invaders = [];
+let explosions = [];
 let lasers = [];
+let lastLaserTime = -1;
 let spawnTimer = 0;
 let totalSpawned = 0;
 const maxInvaders = 600;
@@ -21,21 +40,62 @@ let buildingPhase = false;
 let justChangedDirFrom = null;
 let mustSolidifyNextTick = false;
 let gameWon = false;
-let gamePaused = false;
+const gameTextFont = 'PressStart2P';
+let introActive = true;
+let tempTitleTimer = 0;
+let tempTitle = '';
+const introGoodLuckDuration = 2.2;
+const introLines = [
+	'Greetings General, first we enter the building stage',
+	'to deploy 3 walls to protect our space stations,',
+	'they will be attacked from all directions, but',
+	'remember that they cant move but they can shot.',
+	'',
+	'PRESS SPACE TO START',
+];
 // --- Sounds ---
 const und = undefined;
 const sWall = new Sound([0.1, und, 120, und, 0.05, 0.2, 2, 1, und, und, 80, 0.05]);
 const sHit = new Sound([0.1, und, 300, und, 0.02, 0.1, 4, 2, und, und, 200, 0.02]);
 const sLaser = new Sound([0.1, und, 537, 0.02, 0.02, 0.22, 1, 1.59, -6.98, 4.97]);
+const sStationHit = new Sound([und, und, 333, 0.01, 0, 0.9, 4, 1.9, und, und, und, und, und, 0.5, und, 0.6]);
+const sWallHit = new Sound([0.1, und, 333, 0.01, 0, 0.9, 4, 1.9, und, und, und, und, und, 0.5, und, 0.6]);
 
 // --- Init ---
 function gameInit() {
 	// CanvasFixedSize = vec2(1280, 720);
-	cameraPos = worldSize.scale(0.5);
-	cameraScale = 23;
+	setCameraPos(worldSize.scale(0.5));
+	setCameraScale(23);
+
+	resetGame();
+}
+
+function resetGame() {
+	snake = null;
+	snakeDirs = [];
+	dir = vec2(1, 0);
+	walls = [];
+	wallCount = 0;
+	maxWalls = 3;
+	moveTimer = 0;
+	gameOver = false;
+	stations = [];
+	invaders = [];
+	lasers = [];
+	explosions = [];
+	spawnTimer = 0;
+	totalSpawned = 0;
+	killScore = 0;
+	buildingPhase = false;
+	justChangedDirFrom = null;
+	mustSolidifyNextTick = false;
+	gameWon = false;
+	introActive = true;
+	tempTitleTimer = 0;
 
 	startNewSnake();
 	createStations();
+	setPaused(true);
 }
 
 function findFarthestPoint(listA, listB) {
@@ -135,7 +195,7 @@ function createStations() {
 
 			if (!tooClose) {
 				stations.push({
-					pos, hp: 10, maxHp: 10, vel: vec2(0, 0),
+					pos, hp: 10, maxHp: 10, vel: vec2(0, 0), lastHitTime: -Infinity,
 				});
 				placed = true;
 				break;
@@ -147,7 +207,7 @@ function createStations() {
 			const angle = rand(0, Math.PI * 2);
 			const pos = center.add(vec2(Math.cos(angle) * minDistance, Math.sin(angle) * minDistance));
 			stations.push({
-				pos, hp: 10, maxHp: 10, vel: vec2(0, 0),
+				pos, hp: 10, maxHp: 10, vel: vec2(0, 0), lastHitTime: -Infinity,
 			});
 		}
 	}
@@ -168,9 +228,9 @@ function updateSnakeMovement() {
 
 function solidifyWall() {
 	const newWall = [];
-	positionLogic(snake, snakeDirs, (pos, size, color, isCenter) => {
+	positionLogic(snake, snakeDirs, ({pos, size, color, tile, isMiddle}) => {
 		newWall.push({
-			pos, size, color, isCenter,
+			pos, size, color, tile, isMiddle,
 		});
 	});
 	walls.push(newWall);
@@ -195,19 +255,21 @@ function updateInvasionPhase() {
 
 	if (totalSpawned >= maxInvaders && invaders.length === 0 && stations.some(s => s.hp > 0)) {
 		gameWon = true;
-		gamePaused = true;
+		setPaused(true);
 		return;
 	}
 
 	updateInvaders();
 	updateLasers();
 
-	if (mouseWasPressed(0)) {
+	if (mouseIsDown(0)) {
 		shootLaser();
 	}
 
-	if (killScore >= 200 && totalSpawned < maxInvaders) {
+	if (killScore >= extraWallScore && totalSpawned < maxInvaders) {
 		buildingPhase = true;
+		tempTitleTimer = 3;
+		tempTitle = 'YOU EARNED ANOTHER WALL!\nPLACE IT WISELY';
 		maxWalls++;
 		setTimeout(() => {
 			startNewSnake();
@@ -215,12 +277,38 @@ function updateInvasionPhase() {
 	}
 }
 
-function gameUpdate() {
-	if (!gameOver && !gameWon && keyWasPressed('Escape')) {
-		gamePaused = !gamePaused;
+function gameUpdatePost() {
+	if (introActive) {
+		if (keyWasPressed('Space')) {
+			introActive = false;
+			tempTitleTimer = introGoodLuckDuration;
+			tempTitle = 'GOOD LUCK!';
+			setPaused(false);
+		}
+
+		return;
 	}
 
-	if (gamePaused) {
+	if (gameOver && keyWasPressed('Space')) {
+		resetGame();
+		return;
+	}
+
+	if (!gameOver && !gameWon && keyWasPressed('Escape')) {
+		setPaused(!getPaused());
+	}
+
+	if (getPaused() && keyWasPressed('Space') && !gameOver && !gameWon) {
+		setPaused(false);
+	}
+
+	if (tempTitleTimer > 0) {
+		tempTitleTimer = Math.max(0, tempTitleTimer - timeDelta);
+	}
+}
+
+function gameUpdate() {
+	if (getPaused()) {
 		return;
 	}
 
@@ -246,7 +334,7 @@ function gameUpdate() {
 
 	if (stations.every(s => s.hp <= 0)) {
 		gameOver = true;
-		gamePaused = true;
+		setPaused(true);
 	}
 }
 
@@ -295,6 +383,85 @@ function updateStations() {
 		}
 	};
 
+	const getPreferredAxis = (centerPieces, center) => {
+		let preferredAxis = null;
+		let preferredSign = 0;
+
+		if (centerPieces.length > 0) {
+			let cx = 0;
+			let cy = 0;
+			for (const p of centerPieces) {
+				cx += p.pos.x;
+				cy += p.pos.y;
+			}
+
+			cx /= centerPieces.length;
+			cy /= centerPieces.length;
+
+			const diffX = center.x - cx;
+			const diffY = center.y - cy;
+
+			if (Math.abs(diffX) >= Math.abs(diffY)) {
+				preferredAxis = 'x';
+				preferredSign = Math.sign(diffX) || 1;
+			} else {
+				preferredAxis = 'y';
+				preferredSign = Math.sign(diffY) || 1;
+			}
+		}
+
+		return {preferredAxis, preferredSign};
+	};
+
+	const findBestMtv = ({overlapping, center, preferredAxis, preferredSign, otherStations}) => {
+		let bestMtv = null;
+		let bestDepth = -Infinity;
+
+		for (const p of overlapping) {
+			const dx = center.x - p.pos.x;
+			const dy = center.y - p.pos.y;
+			const overlapX = (halfW + (p.size.x / 2)) - Math.abs(dx);
+			const overlapY = (halfH + (p.size.y / 2)) - Math.abs(dy);
+
+			if (overlapX <= 0 || overlapY <= 0) {
+				continue;
+			}
+
+			if (otherStations.includes(p)) {
+				const otherStation = stations.find(st => st.pos === p.pos);
+				const pushDir = p.pos.subtract(center).normalize();
+				otherStation.vel = otherStation.vel.add(pushDir.scale(1.05));
+				sHit.play(otherStation.pos);
+			}
+
+			let mtv;
+			let depth;
+
+			if (preferredAxis === 'x') {
+				mtv = vec2(preferredSign * overlapX, 0);
+				depth = overlapX;
+			} else if (preferredAxis === 'y') {
+				mtv = vec2(0, preferredSign * overlapY);
+				depth = overlapY;
+			} else if (overlapX < overlapY) {
+				const sx = dx >= 0 ? 1 : -1;
+				mtv = vec2(sx * overlapX, 0);
+				depth = overlapX;
+			} else {
+				const sy = dy >= 0 ? 1 : -1;
+				mtv = vec2(0, sy * overlapY);
+				depth = overlapY;
+			}
+
+			if (depth > bestDepth) {
+				bestDepth = depth;
+				bestMtv = mtv;
+			}
+		}
+
+		return bestMtv;
+	};
+
 	const resolveWallsIterative = s => {
 		const otherStations = stations.filter(st => st !== s && st.hp > 0).map(st => ({pos: st.pos, size: stationSize}));
 		const wallPieces = walls.flat();
@@ -308,84 +475,12 @@ function updateStations() {
 				break;
 			}
 
-			// Use the centroid of overlapping isCenter pieces to determine push axis & sign.
-			// This reliably resolves cases where a wall is built straight through the station,
-			// since the diff from centroid -> station center points toward the larger open area.
-			const centerPieces = overlapping.filter(p => p.isCenter);
-			let preferredAxis = null;
-			let preferredSign = 0;
+			const centerPieces = overlapping.filter(p => p.isMiddle);
+			const {preferredAxis, preferredSign} = getPreferredAxis(centerPieces, center);
 
-			if (centerPieces.length > 0) {
-				let cx = 0;
-				let cy = 0;
-				for (const p of centerPieces) {
-					cx += p.pos.x;
-					cy += p.pos.y;
-				}
-
-				cx /= centerPieces.length;
-				cy /= centerPieces.length;
-
-				// Vector from wall-center centroid to station center
-				const diffX = center.x - cx;
-				const diffY = center.y - cy;
-
-				if (Math.abs(diffX) >= Math.abs(diffY)) {
-					preferredAxis = 'x';
-					preferredSign = Math.sign(diffX) || 1;
-				} else {
-					preferredAxis = 'y';
-					preferredSign = Math.sign(diffY) || 1;
-				}
-			}
-
-			// Find the deepest overlap to resolve this iteration, constrained to the
-			// preferred axis/sign when available.
-			let bestMtv = null;
-			let bestDepth = -Infinity;
-
-			for (const p of overlapping) {
-				const dx = center.x - p.pos.x;
-				const dy = center.y - p.pos.y;
-				const overlapX = (halfW + (p.size.x / 2)) - Math.abs(dx);
-				const overlapY = (halfH + (p.size.y / 2)) - Math.abs(dy);
-
-				if (overlapX <= 0 || overlapY <= 0) {
-					continue;
-				}
-
-				if (otherStations.includes(p)) {
-					// If colliding with another station, push it away from us as well.
-					const otherStation = stations.find(st => st.pos === p.pos);
-					const pushDir = p.pos.subtract(center).normalize();
-					otherStation.vel = otherStation.vel.add(pushDir.scale(1.05));
-					sHit.play(otherStation.pos);
-				}
-
-				let mtv;
-				let depth;
-
-				if (preferredAxis === 'x') {
-					mtv = vec2(preferredSign * overlapX, 0);
-					depth = overlapX;
-				} else if (preferredAxis === 'y') {
-					mtv = vec2(0, preferredSign * overlapY);
-					depth = overlapY;
-				} else if (overlapX < overlapY) {
-					const sx = dx >= 0 ? 1 : -1;
-					mtv = vec2(sx * overlapX, 0);
-					depth = overlapX;
-				} else {
-					const sy = dy >= 0 ? 1 : -1;
-					mtv = vec2(0, sy * overlapY);
-					depth = overlapY;
-				}
-
-				if (depth > bestDepth) {
-					bestDepth = depth;
-					bestMtv = mtv;
-				}
-			}
+			const bestMtv = findBestMtv({
+				overlapping, center, preferredAxis, preferredSign, otherStations,
+			});
 
 			if (!bestMtv) {
 				break;
@@ -397,7 +492,6 @@ function updateStations() {
 			);
 			s.pos = s.pos.add(push);
 
-			// Reflect velocity along push axis if it opposes the push
 			if (bestMtv.x) {
 				const nx = Math.sign(bestMtv.x);
 				if (s.vel.x * nx < 0) {
@@ -410,7 +504,6 @@ function updateStations() {
 				}
 			}
 
-			// Wall correction can push near/outside bounds
 			resolveWorldBounds(s);
 		}
 	};
@@ -458,6 +551,10 @@ function hasClearShot(stationPos, target) {
 }
 
 function shootLaser() {
+	if (time - lastLaserTime < 0.1) {
+		return;
+	}
+
 	const alive = stations.filter(s => s.hp > 0);
 	if (!alive.length) {
 		return;
@@ -481,6 +578,7 @@ function shootLaser() {
 	const dirToMouse = mousePos.subtract(best.pos).normalize(0.6);
 	lasers.push({pos: best.pos.add(vec2(0.5, 0.5)), vel: dirToMouse});
 	sLaser.play(best.pos);
+	lastLaserTime = time;
 }
 
 function updateLasers() {
@@ -496,7 +594,7 @@ function updateLasers() {
 
 		// Collide with invaders
 		for (const inv of invaders) {
-			if (l.pos.distance(inv.pos) < 0.5) {
+			if (isOverlapping(l.pos, vec2(0.3, 0.3), inv.pos, inv.size)) {
 				const wasAlive = inv.hp > 0;
 				inv.hp -= 2;
 				if (wasAlive && inv.hp <= 0) {
@@ -540,8 +638,15 @@ function spawnInvader() {
 		pos = vec2(worldSize.x, randInt(0, worldSize.y));
 	}
 
+	const spawnAlive = stations.filter(s => s.hp > 0);
+	const isRandomTarget = Math.random() < 0.1;
+	const targetStation = isRandomTarget && spawnAlive.length
+		? spawnAlive[randInt(0, spawnAlive.length)]
+		: null;
+
 	invaders.push({
 		pos, size: vec2(1, 1), hp: 1, maxHp: 1, frame: 0, dir: vec2(0, 0),
+		randomTarget: isRandomTarget, targetStation,
 	});
 	totalSpawned++;
 }
@@ -553,13 +658,22 @@ function updateInvaders() {
 			return;
 		}
 
-		let nearest = aliveStations[0];
-		let minDist = inv.pos.distance(nearest.pos);
-		for (const s of aliveStations) {
-			const d = inv.pos.distance(s.pos);
-			if (d < minDist) {
-				minDist = d;
-				nearest = s;
+		let nearest;
+		if (inv.randomTarget) {
+			if (!inv.targetStation || inv.targetStation.hp <= 0) {
+				inv.targetStation = aliveStations[randInt(0, aliveStations.length)];
+			}
+
+			nearest = inv.targetStation;
+		} else {
+			nearest = aliveStations[0];
+			let minDist = inv.pos.distance(nearest.pos);
+			for (const s of aliveStations) {
+				const d = inv.pos.distance(s.pos);
+				if (d < minDist) {
+					minDist = d;
+					nearest = s;
+				}
 			}
 		}
 
@@ -573,17 +687,20 @@ function updateInvaders() {
 
 		if (isOverlapping(inv.pos, inv.size, nearest.pos, stationSize)) {
 			nearest.hp--;
+			nearest.lastHitTime = time;
 			// Push station away from invader
 			const pushDir = nearest.pos.subtract(inv.pos).normalize();
 			nearest.vel = nearest.vel.add(pushDir.scale(1.05));
 			inv.hp = 0;
-			sHit.play();
+			explosions.push({
+				pos: inv.pos.add(inv.dir.scale(10)), frame: 0, start: Date.now(),
+			});
+			sStationHit.play();
 		}
 
 		const pointsCrashed = [];
 		const collided = handleCollisionWithWalls(inv.pos, inv.size, pointsCrashed);
 		if (collided) {
-			killScore++;
 			inv.hp = 0;
 		}
 	}
@@ -606,50 +723,63 @@ const handleCollisionWithWalls = (pos, size) => {
 	}
 
 	if (pointsCrashed.length) {
+		sWallHit.play();
+		explosions.push({
+			pos: pos.copy(), frame: 0, start: Date.now(),
+		});
 		return true;
 	}
 
 	return false;
 };
 
+// Returns the offset to add to snake[0] when turning a corner from fromDir into newDir.
+// These offsets are chosen so the 5-tile perpendicular fans fill the corner square exactly.
+function getCornerOffset(newDir, fromDir) {
+	if (newDir.y === 1) {
+		if (fromDir.x === -1) {
+			return vec2(0, 1);
+		}
+
+		return vec2(-0.8, 1);
+	}
+
+	if (newDir.x === -1) {
+		if (fromDir.y === -1) {
+			return vec2(-0.2, 0);
+		}
+
+		return vec2(-0.2, -0.8);
+	}
+
+	if (newDir.x === 1) {
+		if (fromDir.y === 1) {
+			return vec2(1, -0.8);
+		}
+
+		return vec2(1, 0);
+	}
+
+	if (newDir.y === -1) {
+		if (fromDir.x === -1) {
+			return vec2(0, -0.2);
+		}
+
+		return vec2(-0.8, -0.2);
+	}
+
+	return newDir.scale(0.2);
+}
+
 function moveSnake() {
 	let head = snake[0].add(dir.scale(0.2));
 	if (justChangedDirFrom) {
-		if (dir.y === 1) {
-			head = snake[0].add(dir.scale(1)).add(vec2(-0.8, 0));
-			if (justChangedDirFrom.x === -1) {
-				head = snake[0].add(vec2(0, 1));
-			}
-		}
-
-		if (dir.x === -1) {
-			head = snake[0].add(vec2(-0.20, -0.8));
-			if (justChangedDirFrom.y === -1) {
-				head = snake[0].add(vec2(-0.20, 0));
-			}
-		}
-
-		if (dir.x === 1) {
-			head = snake[0].add(dir.scale(1));
-			if (justChangedDirFrom.y === 1) {
-				head = snake[0].add(vec2(1, -0.8));
-			}
-		}
-
-		if (dir.y === -1) {
-			head = snake[0].add(vec2(-0.8, -0.20));
-			if (justChangedDirFrom.x === -1) {
-				head = snake[0].add(vec2(0, -0.20));
-			}
-		}
-
+		head = snake[0].add(getCornerOffset(dir, justChangedDirFrom));
 		justChangedDirFrom = null;
 	}
 
-	if (head.x < 0 || head.y < 0 || head.x >= worldSize.x || head.y >= worldSize.y) {
-		mustSolidifyNextTick = true;
-		return;
-	}
+	head.x = ((head.x % worldSize.x) + worldSize.x) % worldSize.x;
+	head.y = ((head.y % worldSize.y) + worldSize.y) % worldSize.y;
 
 	// For (const s of snake) {
 	// 	if (s.x === head.x && s.y === head.y) {
@@ -670,8 +800,43 @@ function moveSnake() {
 
 	snake.unshift(head);
 	snakeDirs.unshift(dir.copy());
+
+	// Capture the direction of the tail segment about to be removed
+	const poppedDir = snakeDirs[snakeDirs.length - 1].copy();
 	snake.pop();
 	snakeDirs.pop();
+
+	// Fix corner tail disappearance order:
+	// Find the last ≤5 segments that still have poppedDir.
+	// If there is a direction change just before them (a corner), rotate both
+	// their snakeDirs entry and their position 90° around the transition point
+	// so they render on the correct side as the tail unwinds.
+	if (snakeDirs.length > 0) {
+		const tailIdx = snakeDirs.length - 1;
+		let transitionIdx = -1;
+		for (let i = tailIdx; i >= Math.max(0, tailIdx - 4); i--) {
+			const d = snakeDirs[i];
+			if (d.x !== poppedDir.x || d.y !== poppedDir.y) {
+				transitionIdx = i;
+				break;
+			}
+		}
+
+		if (transitionIdx >= 0) {
+			const nextDir = snakeDirs[transitionIdx];
+			// The first poppedDir segment (transitionIdx+1) sits right at the corner base from
+			// the old direction. Applying the same offset that getCornerOffset uses for the head
+			// gives us the reference point in new-direction space. From there we walk backwards
+			// in nextDir steps of 0.2 to place each remaining tail segment.
+			const offset = getCornerOffset(nextDir, poppedDir);
+			const cornerBase = snake[transitionIdx + 1].add(offset);
+			for (let i = transitionIdx + 1; i <= tailIdx; i++) {
+				snakeDirs[i] = nextDir.copy();
+				const steps = i - (transitionIdx + 1);
+				snake[i] = cornerBase.subtract(nextDir.scale(0.2 * steps));
+			}
+		}
+	}
 }
 
 const positionLogic = (snakePos, snakeDir, callback) => {
@@ -690,7 +855,24 @@ const positionLogic = (snakePos, snakeDir, callback) => {
 							? vec2(0, j * 0.2)
 							: vec2(0, j * 0.2);
 			const newPos = pos.add(vec2(0.5)).add(extra);
-			callback(newPos, size, color, j === 2);
+			const n = snakePos.length;
+			let row;
+			if (i === 0) {
+				row = 0;
+			} else if (i === 1) {
+				row = 1;
+			} else if (i === n - 1) {
+				row = 12;
+			} else if (i === n - 2) {
+				row = 11;
+			} else {
+				row = 2 + ((i - 2) % 10);
+			}
+
+			const newTile = tile((row * 5) + j, vec2(16, 16), imgs.wall);
+			callback({
+				pos: newPos, size, color, tile: newTile, isMiddle: j === 2,
+			});
 		}
 	}
 };
@@ -700,50 +882,65 @@ function gameRender() {
 	drawRect(cameraPos, worldSize, rgb(0.05, 0.05, 0.08));
 
 	for (const s of stations) {
-		const imgIndex = s.hp > 0 ? imgs.spaceStation.index : imgs.deadSpaceStation.index;
-		drawTile(s.pos.add(vec2(0.5)), stationSize, tile(0, vec2(94, 60), imgIndex), WHITE);
+		const imgIndex = s.hp > 0 ? imgs.spaceStation : imgs.deadSpaceStation;
+		const hitElapsed = time - (s.lastHitTime ?? -Infinity);
+		const blinkRed = s.hp > 0 && hitElapsed < 0.5 && Math.floor(hitElapsed / 0.1) % 2 === 0;
+		const stationColor = blinkRed ? rgb(1, 0.1, 0.1) : WHITE;
+		drawTile(s.pos, stationSize, tile(0, vec2(94, 60), imgIndex), stationColor);
+		// drawRect(s.pos, stationSize, rgb(0.2, 0.8, 1));
 	}
 
 	for (const w of walls) {
 		for (const p of w) {
-			drawRect(p.pos, p.size, rgb(0.5, 0.5, 0.5));
+			// drawRect(p.pos, p.size, rgb(0.5, 0.5, 0.5));
+			drawTile(p.pos, p.size, p.tile, p.color);
+		}
+	}
+
+	for (const e of explosions) {
+		const frame = Math.floor((Date.now() - e.start) / 100) % 4;
+		drawTile(e.pos, vec2(1), tile(frame, vec2(18, 18), imgs.explosion), rgb(1, 0.6, 0.2));
+		e.frame++;
+		if (e.frame > 3) {
+			explosions = explosions.filter(ex => ex !== e);
 		}
 	}
 
 	if (snake) {
-		positionLogic(snake, snakeDirs, (pos, size, color) => {
+		positionLogic(snake, snakeDirs, ({pos, size, color, _, __}) => {
 			drawRect(pos, size, color);
 		});
 		// Draw for debugging
 		// drawRect(snake[0].add(vec2(-4.4, 1)), vec2(20, 1.2), YELLOW);
 	}
 
-	const frame = Math.floor(Date.now() / 200) % 4;
+	const invFrame = Math.floor(Date.now() / 200) % 4;
 
 	for (const inv of invaders) {
 		// Rotate it 90 extra
 		const angle = Math.atan2(-inv.dir.y, inv.dir.x) - (Math.PI / 2);
-		inv.frameOffset ||= frame;
-		if (!gamePaused) {
-			inv.frame = (inv.frameOffset + frame) % 3;
+		inv.frameOffset ||= invFrame;
+		if (!getPaused()) {
+			inv.frame = (inv.frameOffset + invFrame) % 3;
 		}
-		// DrawRect(inv.pos, inv.size, rgb(1, 0.2, 0.2));
+
+		// drawRect(inv.pos, inv.size, rgb(1, 0.2, 0.2));
 
 		drawTile(inv.pos, inv.size, tile(
 			inv.frame,
-			vec2(100, 100),
-			imgs.invader.index,
+			vec2(42, 42),
+			imgs.invader,
 		), WHITE, angle);
 	}
 
 	for (const l of lasers) {
 		const angle = Math.atan2(-l.vel.y, l.vel.x);
 		// DrawRect(l.pos, vec2(0.3, 0.3), rgb(1, 1, 0.3));
-		drawTile(l.pos, vec2(0.3, 0.3), tile(0, vec2(24, 24), imgs.bullet.index), WHITE, angle);
+		drawTile(l.pos, vec2(0.3, 0.3), tile(0, vec2(24, 24), imgs.bullet), WHITE, angle);
 	}
 
 	for (const s of stations) {
-		if (wallCount >= maxWalls || buildingPhase) {
+		if ((wallCount >= maxWalls || buildingPhase) && s.hp > 0) {
 			const barWidth = 3;
 			const hpPercent = clamp(s.hp / s.maxHp, 0, 1);
 			const barPos = s.pos.add(vec2(0.5, 2));
@@ -754,38 +951,114 @@ function gameRender() {
 }
 
 function gameRenderPost() {
-	drawTextScreen('Walls: ' + wallCount + '/' + maxWalls, vec2(200, 40), 30);
-	if (wallCount >= maxWalls || buildingPhase) {
-		const enemiesLeft = (maxInvaders - totalSpawned) + invaders.length;
-		drawTextScreen('INVASION!  Enemies left: ' + enemiesLeft, vec2(mainCanvasSize.x / 2, 60), 40);
-		drawTextScreen('Kills for bonus: ' + killScore + '/200', vec2(mainCanvasSize.x / 2, 100), 30);
+	if (introActive) {
+		drawRect(mainCanvasSize.scale(0.5), mainCanvasSize, rgb(0, 0, 0, 0.78));
+		const centerX = mainCanvasSize.x / 2;
+		const centerY = mainCanvasSize.y / 2;
+		const lineHeight = 34;
+		const startY = centerY - (((introLines.length - 1) * lineHeight) / 2);
+
+		for (let i = 0; i < introLines.length; i++) {
+			drawTextScreen(
+				introLines[i],
+				vec2(centerX, startY + (i * lineHeight)),
+				26,
+				WHITE,
+				0,
+				BLACK,
+				'center',
+				gameTextFont,
+			);
+		}
+
+		return;
 	}
 
-	if (buildingPhase) {
-		drawTextScreen('YOU EARNED AN EXTRA WALL!', vec2(mainCanvasSize.x / 2, (mainCanvasSize.y / 2) - 40), 60);
+	// drawTextScreen('Walls: ' + wallCount + '/' + maxWalls, vec2(200, 40), 30, WHITE, 0, BLACK, 'center', gameTextFont);
+
+	if (tempTitleTimer > 0) {
+		drawTextScreen(tempTitle, vec2(mainCanvasSize.x / 2, 180), 52, WHITE, 0, BLACK, 'center', gameTextFont);
+	}
+
+	if (wallCount >= maxWalls || buildingPhase) {
+		const enemiesLeft = (maxInvaders - totalSpawned) + invaders.length;
+		drawTextScreen('Enemies left: ' + enemiesLeft, vec2(mainCanvasSize.x / 2, 60), 20, WHITE, 0, BLACK, 'center', gameTextFont);
+
+		// Glowing cyan power bar
+		{
+			const ctx = mainContext;
+			const barW = 320;
+			const barH = 18;
+			const barX = (mainCanvasSize.x / 2) - (barW / 2);
+			const barY = 88;
+			const fill = clamp(killScore / extraWallScore, 0, 1);
+
+			ctx.save();
+			ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+			// Dark background
+			ctx.fillStyle = 'rgba(4, 14, 24, 0.88)';
+			ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+
+			// Filled glow portion
+			if (fill > 0) {
+				// Outer soft glow
+				ctx.shadowBlur = 18;
+				ctx.shadowColor = '#00e8ff';
+				ctx.fillStyle = fill >= 1 ? '#aaf8ff' : '#00d4f5';
+				ctx.fillRect(barX, barY, barW * fill, barH);
+				// Inner bright core
+				ctx.shadowBlur = 6;
+				ctx.shadowColor = '#ffffff';
+				ctx.fillStyle = fill >= 1 ? '#ffffff' : 'rgba(160,245,255,0.55)';
+				ctx.fillRect(barX, barY + (barH * 0.2), barW * fill, barH * 0.35);
+				ctx.shadowBlur = 0;
+			}
+
+			// Border
+			ctx.strokeStyle = 'rgba(0, 195, 225, 0.75)';
+			ctx.lineWidth = 1.5;
+			ctx.strokeRect(barX, barY, barW, barH);
+
+			// Label
+			ctx.font = 'bold 13px monospace';
+			ctx.textAlign = 'center';
+			ctx.fillStyle = 'rgba(140, 235, 255, 0.9)';
+			ctx.fillText('ENEMIES SHOT BONUS METER', mainCanvasSize.x / 2, barY - 4);
+
+			ctx.restore();
+		}
 	}
 
 	if (gameOver) {
-		drawTextScreen('GAME OVER', mainCanvasSize.scale(0.5), 80);
+		drawTextScreen('GAME OVER', mainCanvasSize.scale(0.5), 80, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawTextScreen('PRESS SPACE TO RESTART', vec2(mainCanvasSize.x / 2, (mainCanvasSize.y / 2) + 60), 24, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 
 	if (gameWon) {
-		drawTextScreen('YOU WIN!', mainCanvasSize.scale(0.5), 80);
+		drawTextScreen('YOU WIN!', mainCanvasSize.scale(0.5), 80, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 }
 
 const imgs = {
-	invader: {src: 'images/invader-90x90.png'},
-	spaceStation: {src: 'images/space-station-94x60.png'},
-	deadSpaceStation: {src: 'images/dead-space-station-94x60.png'},
-	bullet: {src: 'images/bullet-24x24.png'},
+	invader: 'images/invader2-42x42.png',
+	spaceStation: 'images/space-station-94x60.png',
+	deadSpaceStation: 'images/dead-space-station-94x60.png',
+	explosion: 'images/explosion-18x18.png',
+	bullet: 'images/bullet-24x24.png',
+	wall: 'images/wall-16x16.png',
+	/* wall is a grid of 5 * 13 tiles, the top-left corner tile is at (0, 0), the top-right corner tile is at (4, 0),
+	the bottom-left corner tile is at (0, 12), and the bottom-right corner tile is at (4, 12)
+	the top 2 rows must be used in order (are continuations of the corners), as well as the 2 bottom rows (are continuations of the corners),
+	the rows from 2 to 11 must be repeated for filler, the column order must be respected in all
+	*/
 };
 const imagesSrcArray = [];
 let index = 0;
 for (const key of Object.keys(imgs)) {
-	imagesSrcArray[index] = imgs[key].src;
-	imgs[key].index = index;
+	imagesSrcArray[index] = imgs[key];
+	imgs[key] = index;
 	index++;
 }
 
-engineInit(gameInit, gameUpdate, 0, gameRender, gameRenderPost, imagesSrcArray);
+engineInit(gameInit, gameUpdate, gameUpdatePost, gameRender, gameRenderPost, imagesSrcArray);
