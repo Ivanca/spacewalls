@@ -1,15 +1,21 @@
 const xo = require('eslint-config-xo');
 
 const xoConfig = Array.isArray(xo.default) ? xo.default : [xo.default];
-
 module.exports = [
 	...xoConfig,
 	{
 		files: ['game.js'],
+		rules: {
+			'capitalized-comments': 'off',
+		},
 		languageOptions: {
 			globals: {
 				vec2: 'readonly',
 				Sound: 'readonly',
+				mainContext: 'readonly',
+				getPaused: 'readonly',
+				time: 'readonly',
+				setPaused: 'readonly',
 				canvasFixedSize: 'writable',
 				cameraPos: 'writable',
 				cameraScale: 'writable',
@@ -35,6 +41,10 @@ module.exports = [
 				GREEN: 'readonly',
 				BLUE: 'readonly',
 				ORANGE: 'readonly',
+				drawTile: 'readonly',
+				rand: 'readonly',
+				tile: 'readonly',
+				isIntersecting: 'readonly',
 			},
 		},
 	},
