@@ -18,32 +18,35 @@ import {
 const worldSize = vec2(50, 38);
 const stationSize = vec2(3, 2);
 const extraWallScore = 120;
-let snake = null;
-let snakeDirs = [];
-let	dir;
-let walls = [];
-let wallCount = 0;
-let maxWalls = 3;
-let moveTimer = 0;
 const moveDelay = 0.012;
-let gameOver = false;
-let stations = [];
-let invaders = [];
-let explosions = [];
-let lasers = [];
-let lastLaserTime = -1;
-let spawnTimer = 0;
-let totalSpawned = 0;
 const maxInvaders = 600;
-let killScore = 0;
-let buildingPhase = false;
-let justChangedDirFrom = null;
-let mustSolidifyNextTick = false;
-let gameWon = false;
 const gameTextFont = 'PressStart2P';
-let introActive = true;
-let tempTitleTimer = 0;
-let tempTitle = '';
+
+const state = {
+	snake: null,
+	snakeDirs: [],
+	dir: vec2(1, 0),
+	walls: [],
+	wallCount: 0,
+	maxWalls: 3,
+	moveTimer: 0,
+	gameOver: false,
+	stations: [],
+	invaders: [],
+	explosions: [],
+	lasers: [],
+	lastLaserTime: -1,
+	spawnTimer: 0,
+	totalSpawned: 0,
+	killScore: 0,
+	buildingPhase: false,
+	justChangedDirFrom: null,
+	mustSolidifyNextTick: false,
+	gameWon: false,
+	introActive: true,
+	tempTitleTimer: 0,
+	tempTitle: '',
+};
 const introGoodLuckDuration = 2.2;
 const introLines = [
 	'Greetings General, first we enter the building stage',
@@ -71,27 +74,27 @@ function gameInit() {
 }
 
 function resetGame() {
-	snake = null;
-	snakeDirs = [];
-	dir = vec2(1, 0);
-	walls = [];
-	wallCount = 0;
-	maxWalls = 3;
-	moveTimer = 0;
-	gameOver = false;
-	stations = [];
-	invaders = [];
-	lasers = [];
-	explosions = [];
-	spawnTimer = 0;
-	totalSpawned = 0;
-	killScore = 0;
-	buildingPhase = false;
-	justChangedDirFrom = null;
-	mustSolidifyNextTick = false;
-	gameWon = false;
-	introActive = true;
-	tempTitleTimer = 0;
+	state.snake = null;
+	state.snakeDirs = [];
+	state.dir = vec2(1, 0);
+	state.walls = [];
+	state.wallCount = 0;
+	state.maxWalls = 3;
+	state.moveTimer = 0;
+	state.gameOver = false;
+	state.stations = [];
+	state.invaders = [];
+	state.lasers = [];
+	state.explosions = [];
+	state.spawnTimer = 0;
+	state.totalSpawned = 0;
+	state.killScore = 0;
+	state.buildingPhase = false;
+	state.justChangedDirFrom = null;
+	state.mustSolidifyNextTick = false;
+	state.gameWon = false;
+	state.introActive = true;
+	state.tempTitleTimer = 0;
 
 	startNewSnake();
 	createStations();
@@ -124,12 +127,12 @@ function findFarthestPoint(listA, listB) {
 }
 
 function startNewSnake() {
-	if (wallCount >= maxWalls) {
-		snake = null;
+	if (state.wallCount >= state.maxWalls) {
+		state.snake = null;
 		return;
 	}
 
-	snake = [];
+	state.snake = [];
 	const validStartPositions = [
 		vec2(18, 17),
 		vec2(22, 3),
@@ -148,16 +151,16 @@ function startNewSnake() {
 	let start = validStartPositions[4];
 
 	// Find the position farthest away from one of the valid
-	const allWallPointsPos = walls.flat().map(p => p.pos);
+	const allWallPointsPos = state.walls.flat().map(p => p.pos);
 	if (allWallPointsPos.length) {
 		start = findFarthestPoint(validStartPositions, allWallPointsPos);
 	}
 
-	dir = vec2(1, 0);
-	snakeDirs = [];
+	state.dir = vec2(1, 0);
+	state.snakeDirs = [];
 	for (let i = 0; i < 90; i++) {
-		snake.push(start.subtract(vec2(i * 2, 0).scale(0.1)));
-		snakeDirs.push(dir.copy());
+		state.snake.push(start.subtract(vec2(i * 2, 0).scale(0.1)));
+		state.snakeDirs.push(state.dir.copy());
 	}
 }
 
@@ -168,7 +171,7 @@ function createStations() {
 	const maxDistance = 11;
 	const minDistanceBetweenStations = 5;
 
-	stations = [];
+	state.stations = [];
 	const maxAttempts = 1000;
 
 	for (let i = 0; i < stationCount; i++) {
@@ -186,7 +189,7 @@ function createStations() {
 
 			// Ensure minimum distance from other stations
 			let tooClose = false;
-			for (const s of stations) {
+			for (const s of state.stations) {
 				if (pos.distance(s.pos) < minDistanceBetweenStations) {
 					tooClose = true;
 					break;
@@ -194,7 +197,7 @@ function createStations() {
 			}
 
 			if (!tooClose) {
-				stations.push({
+				state.stations.push({
 					pos, hp: 10, maxHp: 10, vel: vec2(0, 0), lastHitTime: -Infinity,
 				});
 				placed = true;
@@ -206,7 +209,7 @@ function createStations() {
 			// Fallback: place at a random angle with minDistance
 			const angle = rand(0, Math.PI * 2);
 			const pos = center.add(vec2(Math.cos(angle) * minDistance, Math.sin(angle) * minDistance));
-			stations.push({
+			state.stations.push({
 				pos, hp: 10, maxHp: 10, vel: vec2(0, 0), lastHitTime: -Infinity,
 			});
 		}
@@ -217,44 +220,44 @@ function createStations() {
 
 function updateSnakeMovement() {
 	const input = keyDirection();
-	if (input.x && !dir.x) {
-		justChangedDirFrom = dir.copy();
-		dir = vec2(sign(input.x), 0);
-	} else if (input.y && !dir.y) {
-		justChangedDirFrom = dir.copy();
-		dir = vec2(0, sign(input.y));
+	if (input.x && !state.dir.x) {
+		state.justChangedDirFrom = state.dir.copy();
+		state.dir = vec2(sign(input.x), 0);
+	} else if (input.y && !state.dir.y) {
+		state.justChangedDirFrom = state.dir.copy();
+		state.dir = vec2(0, sign(input.y));
 	}
 }
 
 function solidifyWall() {
 	const newWall = [];
-	positionLogic(snake, snakeDirs, ({pos, size, color, tile, isMiddle}) => {
+	positionLogic(state.snake, state.snakeDirs, ({pos, size, color, tile, isMiddle}) => {
 		newWall.push({
 			pos, size, color, tile, isMiddle,
 		});
 	});
-	walls.push(newWall);
-	wallCount++;
+	state.walls.push(newWall);
+	state.wallCount++;
 	sWall.play();
 	startNewSnake();
-	mustSolidifyNextTick = false;
-	if (buildingPhase) {
-		buildingPhase = false;
-		killScore = 0;
+	state.mustSolidifyNextTick = false;
+	if (state.buildingPhase) {
+		state.buildingPhase = false;
+		state.killScore = 0;
 	}
 }
 
 function updateInvasionPhase() {
-	if (totalSpawned < maxInvaders) {
-		spawnTimer -= timeDelta;
-		if (spawnTimer <= 0) {
-			spawnTimer = 0.15;
+	if (state.totalSpawned < maxInvaders) {
+		state.spawnTimer -= timeDelta;
+		if (state.spawnTimer <= 0) {
+			state.spawnTimer = 0.15;
 			spawnInvader();
 		}
 	}
 
-	if (totalSpawned >= maxInvaders && invaders.length === 0 && stations.some(s => s.hp > 0)) {
-		gameWon = true;
+	if (state.totalSpawned >= maxInvaders && state.invaders.length === 0 && state.stations.some(s => s.hp > 0)) {
+		state.gameWon = true;
 		setPaused(true);
 		return;
 	}
@@ -266,11 +269,11 @@ function updateInvasionPhase() {
 		shootLaser();
 	}
 
-	if (killScore >= extraWallScore && totalSpawned < maxInvaders) {
-		buildingPhase = true;
-		tempTitleTimer = 3;
-		tempTitle = 'YOU EARNED ANOTHER WALL!\nPLACE IT WISELY';
-		maxWalls++;
+	if (state.killScore >= extraWallScore && state.totalSpawned < maxInvaders) {
+		state.buildingPhase = true;
+		state.tempTitleTimer = 3;
+		state.tempTitle = 'YOU EARNED ANOTHER WALL!\nPLACE IT WISELY';
+		state.maxWalls++;
 		setTimeout(() => {
 			startNewSnake();
 		}, 2500);
@@ -278,32 +281,32 @@ function updateInvasionPhase() {
 }
 
 function gameUpdatePost() {
-	if (introActive) {
+	if (state.introActive) {
 		if (keyWasPressed('Space')) {
-			introActive = false;
-			tempTitleTimer = introGoodLuckDuration;
-			tempTitle = 'GOOD LUCK!';
+			state.introActive = false;
+			state.tempTitleTimer = introGoodLuckDuration;
+			state.tempTitle = 'GOOD LUCK!';
 			setPaused(false);
 		}
 
 		return;
 	}
 
-	if (gameOver && keyWasPressed('Space')) {
+	if (state.gameOver && keyWasPressed('Space')) {
 		resetGame();
 		return;
 	}
 
-	if (!gameOver && !gameWon && keyWasPressed('Escape')) {
+	if (!state.gameOver && !state.gameWon && keyWasPressed('Escape')) {
 		setPaused(!getPaused());
 	}
 
-	if (getPaused() && keyWasPressed('Space') && !gameOver && !gameWon) {
+	if (getPaused() && keyWasPressed('Space') && !state.gameOver && !state.gameWon) {
 		setPaused(false);
 	}
 
-	if (tempTitleTimer > 0) {
-		tempTitleTimer = Math.max(0, tempTitleTimer - timeDelta);
+	if (state.tempTitleTimer > 0) {
+		state.tempTitleTimer = Math.max(0, state.tempTitleTimer - timeDelta);
 	}
 }
 
@@ -312,28 +315,28 @@ function gameUpdate() {
 		return;
 	}
 
-	if (snake) {
+	if (state.snake) {
 		updateSnakeMovement();
 
-		if ((keyWasPressed('Space') || mustSolidifyNextTick) && wallCount < maxWalls) {
+		if ((keyWasPressed('Space') || state.mustSolidifyNextTick) && state.wallCount < state.maxWalls) {
 			solidifyWall();
 		}
 
-		moveTimer -= timeDelta;
-		if (moveTimer <= 0 && snake) {
-			moveTimer = moveDelay;
+		state.moveTimer -= timeDelta;
+		if (state.moveTimer <= 0 && state.snake) {
+			state.moveTimer = moveDelay;
 			moveSnake();
 		}
 	}
 
-	if (wallCount >= maxWalls) {
+	if (state.wallCount >= state.maxWalls) {
 		updateInvasionPhase();
 	}
 
 	updateStations();
 
-	if (stations.every(s => s.hp <= 0)) {
-		gameOver = true;
+	if (state.stations.every(s => s.hp <= 0)) {
+		state.gameOver = true;
 		setPaused(true);
 	}
 }
@@ -428,7 +431,7 @@ function updateStations() {
 			}
 
 			if (otherStations.includes(p)) {
-				const otherStation = stations.find(st => st.pos === p.pos);
+				const otherStation = state.stations.find(st => st.pos === p.pos);
 				const pushDir = p.pos.subtract(center).normalize();
 				otherStation.vel = otherStation.vel.add(pushDir.scale(1.05));
 				sHit.play(otherStation.pos);
@@ -463,8 +466,8 @@ function updateStations() {
 	};
 
 	const resolveWallsIterative = s => {
-		const otherStations = stations.filter(st => st !== s && st.hp > 0).map(st => ({pos: st.pos, size: stationSize}));
-		const wallPieces = walls.flat();
+		const otherStations = state.stations.filter(st => st !== s && st.hp > 0).map(st => ({pos: st.pos, size: stationSize}));
+		const wallPieces = state.walls.flat();
 		const validObstacles = [...wallPieces, ...otherStations];
 
 		for (let iter = 0; iter < maxWallSolveIterations; iter++) {
@@ -508,7 +511,7 @@ function updateStations() {
 		}
 	};
 
-	for (const s of stations) {
+	for (const s of state.stations) {
 		// Always run a resolution pass so stations embedded by a freshly placed
 		// wall (zero velocity) are immediately pushed out in the right direction.
 		resolveWallsIterative(s);
@@ -538,8 +541,8 @@ function updateStations() {
 }
 
 function hasClearShot(stationPos, target) {
-	const start = stationPos.add(vec2(0.5, 0.5));
-	for (const w of walls) {
+	const start = stationPos;
+	for (const w of state.walls) {
 		for (const p of w) {
 			if (isIntersecting(start, target, p.pos, p.size)) {
 				return false;
@@ -551,11 +554,11 @@ function hasClearShot(stationPos, target) {
 }
 
 function shootLaser() {
-	if (time - lastLaserTime < 0.1) {
+	if (time - state.lastLaserTime < 0.1) {
 		return;
 	}
 
-	const alive = stations.filter(s => s.hp > 0);
+	const alive = state.stations.filter(s => s.hp > 0);
 	if (!alive.length) {
 		return;
 	}
@@ -576,13 +579,13 @@ function shootLaser() {
 	}
 
 	const dirToMouse = mousePos.subtract(best.pos).normalize(0.6);
-	lasers.push({pos: best.pos.add(vec2(0.5, 0.5)), vel: dirToMouse});
+	state.lasers.push({pos: best.pos, vel: dirToMouse});
 	sLaser.play(best.pos);
-	lastLaserTime = time;
+	state.lastLaserTime = time;
 }
 
 function updateLasers() {
-	for (const l of lasers) {
+	for (const l of state.lasers) {
 		l.pos = l.pos.add(l.vel);
 
 		// Collide with walls
@@ -593,12 +596,12 @@ function updateLasers() {
 		}
 
 		// Collide with invaders
-		for (const inv of invaders) {
+		for (const inv of state.invaders) {
 			if (isOverlapping(l.pos, vec2(0.3, 0.3), inv.pos, inv.size)) {
 				const wasAlive = inv.hp > 0;
 				inv.hp -= 2;
 				if (wasAlive && inv.hp <= 0) {
-					killScore++;
+					state.killScore++;
 				}
 
 				l.hit = true;
@@ -607,7 +610,7 @@ function updateLasers() {
 		}
 	}
 
-	lasers = lasers.filter(({hit, pos}) => {
+	state.lasers = state.lasers.filter(({hit, pos}) => {
 		const {x, y} = pos;
 		if (hit) {
 			return false;
@@ -615,7 +618,7 @@ function updateLasers() {
 
 		return x > -2 && x < worldSize.x + 2 && y > -2 && y < worldSize.y + 2;
 	});
-	invaders = invaders.filter(i => i.hp > 0);
+	state.invaders = state.invaders.filter(i => i.hp > 0);
 }
 
 function spawnInvader() {
@@ -638,22 +641,22 @@ function spawnInvader() {
 		pos = vec2(worldSize.x, randInt(0, worldSize.y));
 	}
 
-	const spawnAlive = stations.filter(s => s.hp > 0);
+	const spawnAlive = state.stations.filter(s => s.hp > 0);
 	const isRandomTarget = Math.random() < 0.1;
 	const targetStation = isRandomTarget && spawnAlive.length
 		? spawnAlive[randInt(0, spawnAlive.length)]
 		: null;
 
-	invaders.push({
+	state.invaders.push({
 		pos, size: vec2(1, 1), hp: 1, maxHp: 1, frame: 0, dir: vec2(0, 0),
 		randomTarget: isRandomTarget, targetStation,
 	});
-	totalSpawned++;
+	state.totalSpawned++;
 }
 
 function updateInvaders() {
-	for (const inv of invaders) {
-		const aliveStations = stations.filter(s => s.hp > 0);
+	for (const inv of state.invaders) {
+		const aliveStations = state.stations.filter(s => s.hp > 0);
 		if (!aliveStations.length) {
 			return;
 		}
@@ -692,7 +695,7 @@ function updateInvaders() {
 			const pushDir = nearest.pos.subtract(inv.pos).normalize();
 			nearest.vel = nearest.vel.add(pushDir.scale(1.05));
 			inv.hp = 0;
-			explosions.push({
+			state.explosions.push({
 				pos: inv.pos.add(inv.dir.scale(10)), frame: 0, start: Date.now(),
 			});
 			sStationHit.play();
@@ -708,8 +711,8 @@ function updateInvaders() {
 
 const handleCollisionWithWalls = (pos, size) => {
 	const pointsCrashed = [];
-	for (const w of walls) {
-		const index = walls.indexOf(w);
+	for (const w of state.walls) {
+		const index = state.walls.indexOf(w);
 		for (const p of w) {
 			if (isOverlapping(pos, size, p.pos, p.size)) {
 				pointsCrashed.push({index, p});
@@ -719,12 +722,12 @@ const handleCollisionWithWalls = (pos, size) => {
 
 	for (const sc of pointsCrashed) {
 		const {index} = sc;
-		walls[index] = walls[index].filter(p => p !== sc.p);
+		state.walls[index] = state.walls[index].filter(p => p !== sc.p);
 	}
 
 	if (pointsCrashed.length) {
 		sWallHit.play();
-		explosions.push({
+		state.explosions.push({
 			pos: pos.copy(), frame: 0, start: Date.now(),
 		});
 		return true;
@@ -772,50 +775,50 @@ function getCornerOffset(newDir, fromDir) {
 }
 
 function moveSnake() {
-	let head = snake[0].add(dir.scale(0.2));
-	if (justChangedDirFrom) {
-		head = snake[0].add(getCornerOffset(dir, justChangedDirFrom));
-		justChangedDirFrom = null;
+	let head = state.snake[0].add(state.dir.scale(0.2));
+	if (state.justChangedDirFrom) {
+		head = state.snake[0].add(getCornerOffset(state.dir, state.justChangedDirFrom));
+		state.justChangedDirFrom = null;
 	}
 
 	head.x = ((head.x % worldSize.x) + worldSize.x) % worldSize.x;
 	head.y = ((head.y % worldSize.y) + worldSize.y) % worldSize.y;
 
-	// For (const s of snake) {
+	// For (const s of state.snake) {
 	// 	if (s.x === head.x && s.y === head.y) {
-	// 		mustSolidifyNextTick = true;
+	// 		state.mustSolidifyNextTick = true;
 	// 		return;
 	// 	}
 	// }
 
-	// positionLogic(snake, snakeDirs, (pos, size) => {
-	// 	for (const w of walls) {
+	// positionLogic(state.snake, state.snakeDirs, (pos, size) => {
+	// 	for (const w of state.walls) {
 	// 		for (const p of w) {
 	// 			if (isOverlapping(pos, size, p.pos, p.size)) {
-	// 				mustSolidifyNextTick = true;
+	// 				state.mustSolidifyNextTick = true;
 	// 			}
 	// 		}
 	// 	}
 	// });
 
-	snake.unshift(head);
-	snakeDirs.unshift(dir.copy());
+	state.snake.unshift(head);
+	state.snakeDirs.unshift(state.dir.copy());
 
 	// Capture the direction of the tail segment about to be removed
-	const poppedDir = snakeDirs[snakeDirs.length - 1].copy();
-	snake.pop();
-	snakeDirs.pop();
+	const poppedDir = state.snakeDirs[state.snakeDirs.length - 1].copy();
+	state.snake.pop();
+	state.snakeDirs.pop();
 
 	// Fix corner tail disappearance order:
 	// Find the last ≤5 segments that still have poppedDir.
 	// If there is a direction change just before them (a corner), rotate both
 	// their snakeDirs entry and their position 90° around the transition point
 	// so they render on the correct side as the tail unwinds.
-	if (snakeDirs.length > 0) {
-		const tailIdx = snakeDirs.length - 1;
+	if (state.snakeDirs.length > 0) {
+		const tailIdx = state.snakeDirs.length - 1;
 		let transitionIdx = -1;
 		for (let i = tailIdx; i >= Math.max(0, tailIdx - 4); i--) {
-			const d = snakeDirs[i];
+			const d = state.snakeDirs[i];
 			if (d.x !== poppedDir.x || d.y !== poppedDir.y) {
 				transitionIdx = i;
 				break;
@@ -823,17 +826,17 @@ function moveSnake() {
 		}
 
 		if (transitionIdx >= 0) {
-			const nextDir = snakeDirs[transitionIdx];
+			const nextDir = state.snakeDirs[transitionIdx];
 			// The first poppedDir segment (transitionIdx+1) sits right at the corner base from
 			// the old direction. Applying the same offset that getCornerOffset uses for the head
 			// gives us the reference point in new-direction space. From there we walk backwards
 			// in nextDir steps of 0.2 to place each remaining tail segment.
 			const offset = getCornerOffset(nextDir, poppedDir);
-			const cornerBase = snake[transitionIdx + 1].add(offset);
+			const cornerBase = state.snake[transitionIdx + 1].add(offset);
 			for (let i = transitionIdx + 1; i <= tailIdx; i++) {
-				snakeDirs[i] = nextDir.copy();
+				state.snakeDirs[i] = nextDir.copy();
 				const steps = i - (transitionIdx + 1);
-				snake[i] = cornerBase.subtract(nextDir.scale(0.2 * steps));
+				state.snake[i] = cornerBase.subtract(nextDir.scale(0.2 * steps));
 			}
 		}
 	}
@@ -881,7 +884,7 @@ const positionLogic = (snakePos, snakeDir, callback) => {
 function gameRender() {
 	drawRect(cameraPos, worldSize, rgb(0.05, 0.05, 0.08));
 
-	for (const s of stations) {
+	for (const s of state.stations) {
 		const imgIndex = s.hp > 0 ? imgs.spaceStation : imgs.deadSpaceStation;
 		const hitElapsed = time - (s.lastHitTime ?? -Infinity);
 		const blinkRed = s.hp > 0 && hitElapsed < 0.5 && Math.floor(hitElapsed / 0.1) % 2 === 0;
@@ -890,33 +893,33 @@ function gameRender() {
 		// drawRect(s.pos, stationSize, rgb(0.2, 0.8, 1));
 	}
 
-	for (const w of walls) {
+	for (const w of state.walls) {
 		for (const p of w) {
 			// drawRect(p.pos, p.size, rgb(0.5, 0.5, 0.5));
 			drawTile(p.pos, p.size, p.tile, p.color);
 		}
 	}
 
-	for (const e of explosions) {
+	for (const e of state.explosions) {
 		const frame = Math.floor((Date.now() - e.start) / 100) % 4;
 		drawTile(e.pos, vec2(1), tile(frame, vec2(18, 18), imgs.explosion), rgb(1, 0.6, 0.2));
 		e.frame++;
 		if (e.frame > 3) {
-			explosions = explosions.filter(ex => ex !== e);
+			state.explosions = state.explosions.filter(ex => ex !== e);
 		}
 	}
 
-	if (snake) {
-		positionLogic(snake, snakeDirs, ({pos, size, color, _, __}) => {
+	if (state.snake) {
+		positionLogic(state.snake, state.snakeDirs, ({pos, size, color, _, __}) => {
 			drawRect(pos, size, color);
 		});
 		// Draw for debugging
-		// drawRect(snake[0].add(vec2(-4.4, 1)), vec2(20, 1.2), YELLOW);
+		// drawRect(state.snake[0].add(vec2(-4.4, 1)), vec2(20, 1.2), YELLOW);
 	}
 
 	const invFrame = Math.floor(Date.now() / 200) % 4;
 
-	for (const inv of invaders) {
+	for (const inv of state.invaders) {
 		// Rotate it 90 extra
 		const angle = Math.atan2(-inv.dir.y, inv.dir.x) - (Math.PI / 2);
 		inv.frameOffset ||= invFrame;
@@ -933,14 +936,14 @@ function gameRender() {
 		), WHITE, angle);
 	}
 
-	for (const l of lasers) {
+	for (const l of state.lasers) {
 		const angle = Math.atan2(-l.vel.y, l.vel.x);
 		// DrawRect(l.pos, vec2(0.3, 0.3), rgb(1, 1, 0.3));
 		drawTile(l.pos, vec2(0.3, 0.3), tile(0, vec2(24, 24), imgs.bullet), WHITE, angle);
 	}
 
-	for (const s of stations) {
-		if ((wallCount >= maxWalls || buildingPhase) && s.hp > 0) {
+	for (const s of state.stations) {
+		if ((state.wallCount >= state.maxWalls || state.buildingPhase) && s.hp > 0) {
 			const barWidth = 3;
 			const hpPercent = clamp(s.hp / s.maxHp, 0, 1);
 			const barPos = s.pos.add(vec2(0.5, 2));
@@ -951,7 +954,7 @@ function gameRender() {
 }
 
 function gameRenderPost() {
-	if (introActive) {
+	if (state.introActive) {
 		drawRect(mainCanvasSize.scale(0.5), mainCanvasSize, rgb(0, 0, 0, 0.78));
 		const centerX = mainCanvasSize.x / 2;
 		const centerY = mainCanvasSize.y / 2;
@@ -974,14 +977,14 @@ function gameRenderPost() {
 		return;
 	}
 
-	// drawTextScreen('Walls: ' + wallCount + '/' + maxWalls, vec2(200, 40), 30, WHITE, 0, BLACK, 'center', gameTextFont);
+	// drawTextScreen('Walls: ' + state.wallCount + '/' + state.maxWalls, vec2(200, 40), 30, WHITE, 0, BLACK, 'center', gameTextFont);
 
-	if (tempTitleTimer > 0) {
-		drawTextScreen(tempTitle, vec2(mainCanvasSize.x / 2, 180), 52, WHITE, 0, BLACK, 'center', gameTextFont);
+	if (state.tempTitleTimer > 0) {
+		drawTextScreen(state.tempTitle, vec2(mainCanvasSize.x / 2, 180), 52, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 
-	if (wallCount >= maxWalls || buildingPhase) {
-		const enemiesLeft = (maxInvaders - totalSpawned) + invaders.length;
+	if (state.wallCount >= state.maxWalls || state.buildingPhase) {
+		const enemiesLeft = (maxInvaders - state.totalSpawned) + state.invaders.length;
 		drawTextScreen('Enemies left: ' + enemiesLeft, vec2(mainCanvasSize.x / 2, 60), 20, WHITE, 0, BLACK, 'center', gameTextFont);
 
 		// Glowing cyan power bar
@@ -991,7 +994,7 @@ function gameRenderPost() {
 			const barH = 18;
 			const barX = (mainCanvasSize.x / 2) - (barW / 2);
 			const barY = 88;
-			const fill = clamp(killScore / extraWallScore, 0, 1);
+			const fill = clamp(state.killScore / extraWallScore, 0, 1);
 
 			ctx.save();
 			ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1030,12 +1033,12 @@ function gameRenderPost() {
 		}
 	}
 
-	if (gameOver) {
+	if (state.gameOver) {
 		drawTextScreen('GAME OVER', mainCanvasSize.scale(0.5), 80, WHITE, 0, BLACK, 'center', gameTextFont);
 		drawTextScreen('PRESS SPACE TO RESTART', vec2(mainCanvasSize.x / 2, (mainCanvasSize.y / 2) + 60), 24, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 
-	if (gameWon) {
+	if (state.gameWon) {
 		drawTextScreen('YOU WIN!', mainCanvasSize.scale(0.5), 80, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 }
