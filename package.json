@@ -5,7 +5,7 @@
   "main": "game.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "npx eslint --fix game.js"
+    "lint": "npx eslint --fix ./scripts/*.js"
   },
   "keywords": [],
   "author": "",
