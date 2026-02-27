@@ -2,7 +2,7 @@ import {
 	vec2, isOverlapping, time, mousePos,
 } from '../littlejs.esm.js';
 import {state} from './state.js';
-import {worldSize} from './constants.js';
+import {worldSize, blackHoleRadius} from './constants.js';
 import {sLaser, sWall, sHit} from './sounds.js';
 import {hasClearShot} from './stations.js';
 import {handleCollisionWithWalls} from './walls.js';
@@ -47,6 +47,15 @@ export function updateLasers() {
 		if (hit) {
 			l.hit = true;
 			sWall.play(l.pos);
+		}
+
+		// Absorbed by black hole inner radius
+		if (state.blackHole) {
+			const dx = l.pos.x - state.blackHole.pos.x;
+			const dy = l.pos.y - state.blackHole.pos.y;
+			if ((dx * dx) + (dy * dy) < blackHoleRadius * blackHoleRadius) {
+				l.hit = true;
+			}
 		}
 
 		// Collide with invaders

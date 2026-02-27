@@ -14,8 +14,20 @@ import {
 import {imgs} from './assets.js';
 import {positionLogic} from './snake.js';
 
+function drawBlackHole() {
+	if (!state.blackHole) {
+		return;
+	}
+
+	const pulse = 1 + (0.08 * Math.sin(time * 3));
+	const bhSize = vec2(5 * pulse, 5 * pulse);
+	drawTile(state.blackHole.pos, bhSize, tile(0, vec2(438, 438), imgs.blackHole));
+}
+
 export function gameRender() {
 	drawRect(cameraPos, worldSize, rgb(0.05, 0.05, 0.08));
+
+	drawBlackHole();
 
 	for (const s of state.stations) {
 		const imgIndex = s.hp > 0 ? imgs.spaceStation : imgs.deadSpaceStation;
@@ -171,7 +183,12 @@ export function gameRenderPost() {
 		drawTextScreen('PRESS SPACE TO RESTART', vec2(mainCanvasSize.x / 2, (mainCanvasSize.y / 2) + 60), 24, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 
-	if (state.gameWon) {
+	if (state.gameWon && state.level === 1) {
+		drawTextScreen('LEVEL 1 CLEAR!', mainCanvasSize.scale(0.5), 80, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawTextScreen('PRESS SPACE FOR LEVEL 2', vec2(mainCanvasSize.x / 2, (mainCanvasSize.y / 2) + 60), 24, WHITE, 0, BLACK, 'center', gameTextFont);
+	}
+
+	if (state.gameWon && state.level === 2) {
 		drawTextScreen('YOU WIN!', mainCanvasSize.scale(0.5), 80, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 }

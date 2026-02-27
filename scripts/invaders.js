@@ -2,28 +2,38 @@ import {
 	vec2, randInt, isOverlapping, time,
 } from '../littlejs.esm.js';
 import {state} from './state.js';
-import {worldSize, stationSize} from './constants.js';
+import {worldSize, stationSize, blackHoleRadius} from './constants.js';
 import {sStationHit} from './sounds.js';
 import {handleCollisionWithWalls} from './walls.js';
 
 export function spawnInvader() {
-	const side = randInt(0, 4);
 	let pos;
+	const spawnFromBlackHole = state.level === 2 && state.blackHole && Math.random() < 0.5;
 
-	if (side === 0) {
-		pos = vec2(randInt(0, worldSize.x), worldSize.y);
-	}
+	if (spawnFromBlackHole) {
+		const angle = Math.random() * Math.PI * 2;
+		pos = vec2(
+			state.blackHole.pos.x + (Math.cos(angle) * blackHoleRadius),
+			state.blackHole.pos.y + (Math.sin(angle) * blackHoleRadius),
+		);
+	} else {
+		const side = randInt(0, 4);
 
-	if (side === 1) {
-		pos = vec2(randInt(0, worldSize.x), 0);
-	}
+		if (side === 0) {
+			pos = vec2(randInt(0, worldSize.x), worldSize.y);
+		}
 
-	if (side === 2) {
-		pos = vec2(0, randInt(0, worldSize.y));
-	}
+		if (side === 1) {
+			pos = vec2(randInt(0, worldSize.x), 0);
+		}
 
-	if (side === 3) {
-		pos = vec2(worldSize.x, randInt(0, worldSize.y));
+		if (side === 2) {
+			pos = vec2(0, randInt(0, worldSize.y));
+		}
+
+		if (side === 3) {
+			pos = vec2(worldSize.x, randInt(0, worldSize.y));
+		}
 	}
 
 	const spawnAlive = state.stations.filter(s => s.hp > 0);

@@ -7,6 +7,7 @@ export const moveDelay = 0.012;
 export const maxInvaders = 600;
 export const gameTextFont = 'PressStart2P';
 export const introGoodLuckDuration = 2.2;
+export const blackHoleRadius = 1.5;
 export const introLines = [
 	'Greetings General, first we enter the building stage',
 	'to deploy 3 walls to protect our space stations,',

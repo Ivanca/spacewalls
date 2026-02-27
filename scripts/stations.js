@@ -1,8 +1,8 @@
 import {
-	vec2, rand, isOverlapping, isIntersecting, timeDelta
+	vec2, rand, isOverlapping, isIntersecting, timeDelta,
 } from '../littlejs.esm.js';
 import {state} from './state.js';
-import {worldSize, stationSize} from './constants.js';
+import {worldSize, stationSize, blackHoleRadius} from './constants.js';
 import {sHit} from './sounds.js';
 
 export function createStations() {
@@ -57,6 +57,25 @@ export function createStations() {
 	}
 }
 
+function lineIntersectsCircle(a, b, c, r) {
+	const dx = b.x - a.x;
+	const dy = b.y - a.y;
+	const fx = a.x - c.x;
+	const fy = a.y - c.y;
+	const lenSq = (dx * dx) + (dy * dy);
+	const aDot = 2 * ((fx * dx) + (fy * dy));
+	const cVal = (fx * fx) + (fy * fy) - (r * r);
+	let disc = (aDot * aDot) - (4 * lenSq * cVal);
+	if (disc < 0 || lenSq === 0) {
+		return false;
+	}
+
+	disc = Math.sqrt(disc);
+	const t1 = (-aDot - disc) / (2 * lenSq);
+	const t2 = (-aDot + disc) / (2 * lenSq);
+	return (t1 >= 0 && t1 <= 1) || (t2 >= 0 && t2 <= 1) || (t1 < 0 && t2 > 1);
+}
+
 export function hasClearShot(stationPos, target) {
 	const start = stationPos;
 	for (const w of state.walls) {
@@ -65,6 +84,10 @@ export function hasClearShot(stationPos, target) {
 				return false;
 			}
 		}
+	}
+
+	if (state.blackHole && lineIntersectsCircle(start, target, state.blackHole.pos, blackHoleRadius)) {
+		return false;
 	}
 
 	return true;
