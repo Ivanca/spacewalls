@@ -1,18 +1,116 @@
 import {
-	vec2, rgb, WHITE, BLACK,
+	vec2, rgb, WHITE, BLACK, ASSERT, isString, isVector2, isNumber, isColor, fontDefault,
 	clamp,
 	cameraPos,
-	drawRect, drawTile, drawTextScreen,
+	drawRect, drawTile,
 	tile,
 	mainCanvasSize, mainContext,
 	getPaused, time,
+	worldToScreen,
 } from '../littlejs.esm.js';
 import {state} from './state.js';
 import {
-	worldSize, stationSize, extraWallScore, gameTextFont, introLines, maxInvaders,
+	worldSize, stationSize, extraWallScore, gameTextFont, introLines, secondLevelIntroLines, outroLines, maxInvaders, promotedThreshold,
 } from './constants.js';
 import {imgs} from './assets.js';
-import {positionLogic} from './snake.js';
+import {positionLogic, isSnakeCollidingWithBlackHole} from './snake.js';
+import {getStarsPositions} from './stars.js';
+
+// ---------- Outro overlay (DOM elements shown on level 2 victory) ----------
+let outroOverlayEl = null;
+let outroBtnRow = null;
+
+function ensureOutroOverlay() {
+	if (outroOverlayEl) return;
+
+	outroOverlayEl = document.createElement('div');
+	outroOverlayEl.id = 'outro-overlay';
+	outroOverlayEl.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;display:none;pointer-events:none;z-index:100;container-type: size;';
+
+	outroBtnRow = document.createElement('div');
+	outroBtnRow.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);display:flex;gap:16px;pointer-events:all;';
+
+	const btnBase = [
+		'background:#0a0a12',
+		'color:#e0f8ff',
+		'border:2px solid #00e8ff',
+		'border-radius:6px',
+		'padding:10px 22px',
+		'font-family:PressStart2P,monospace',
+		'font-size: 1.1cqi',
+		'cursor:pointer',
+		'text-shadow:0 0 8px #00e8ff',
+		'box-shadow:0 0 14px #00e8ff55',
+		'position:relative',
+	].join(';');
+
+	// --- Share button with dropdown ---
+	const shareWrapper = document.createElement('div');
+	shareWrapper.style.cssText = 'position:relative;';
+
+	const shareBtn = document.createElement('button');
+	shareBtn.textContent = 'Share Game';
+	shareBtn.style.cssText = btnBase;
+
+	const dropdown = document.createElement('div');
+	dropdown.style.cssText = [
+		'display:none',
+		'position:absolute',
+		'bottom:calc(100% + 8px)',
+		'left:0',
+		'background:#0a0a12',
+		'border:2px solid #00e8ff',
+		'border-radius:6px',
+		'overflow:hidden',
+		'z-index:101',
+		'min-width:170px',
+		'white-space:nowrap',
+	].join(';');
+
+	const gameUrl = 'https://www.spacewallsgame.com';
+	const shareOpts = [
+		['Twitter / X',  `https://twitter.com/intent/tweet?url=${encodeURIComponent(gameUrl)}&text=${encodeURIComponent('Check out Space Walls! ')}` ],
+		['Facebook',     `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(gameUrl)}`],
+		['Bluesky',      `https://bsky.app/intent/compose?text=${encodeURIComponent('Check out Space Walls! ' + gameUrl)}`],
+		['Instagram',    `https://www.instagram.com/`],
+		['Email',        `mailto:?subject=${encodeURIComponent('Check out Space Walls!')}&body=${encodeURIComponent(gameUrl)}`],
+	];
+
+	for (const [label, href] of shareOpts) {
+		const a = document.createElement('a');
+		a.textContent = label;
+		a.href = href;
+		a.target = '_blank';
+		a.rel = 'noopener noreferrer';
+		a.style.cssText = 'display:block;padding:9px 16px;color:#e0f8ff;font-family:PressStart2P,monospace;font-size: 0.9cqi;text-decoration:none;';
+		a.addEventListener('mouseenter', () => { a.style.background = 'rgba(0,232,255,0.15)'; });
+		a.addEventListener('mouseleave', () => { a.style.background = ''; });
+		dropdown.appendChild(a);
+	}
+
+	shareBtn.addEventListener('click', (e) => {
+		e.stopPropagation();
+		dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+	});
+	document.addEventListener('click', () => { dropdown.style.display = 'none'; });
+
+	shareWrapper.appendChild(dropdown);
+	shareWrapper.appendChild(shareBtn);
+
+	// --- YouTube button ---
+	const ytBtn = document.createElement('button');
+	ytBtn.textContent = 'YouTube Channel';
+	ytBtn.style.cssText = btnBase.replace(/00e8ff/g, 'ff4040').replace(/00e8ff55/g, 'ff404055');
+	ytBtn.addEventListener('click', () => {
+		window.open('https://www.youtube.com/channel/UCtmf9FLAjo0W1SxfhCZzp1w?sub_confirmation=1', '_blank');
+	});
+
+	outroBtnRow.appendChild(shareWrapper);
+	outroBtnRow.appendChild(ytBtn);
+	outroOverlayEl.appendChild(outroBtnRow);
+	document.body.appendChild(outroOverlayEl);
+}
+// -------------------------------------------------------------------------
 
 function drawBlackHole() {
 	if (!state.blackHole) {
@@ -24,8 +122,16 @@ function drawBlackHole() {
 	drawTile(state.blackHole.pos, bhSize, tile(0, vec2(438, 438), imgs.blackHole));
 }
 
+
 export function gameRender() {
 	drawRect(cameraPos, worldSize, rgb(0.05, 0.05, 0.08));
+
+	// draw random stars background
+	let stars = getStarsPositions();
+	for (let i = 0; i < stars.length; i++) {
+		const pos = stars[i];
+		drawTile(pos, vec2(0.1, 0.1), tile(i % 3, vec2(18, 18), imgs.stars));
+	}
 
 	drawBlackHole();
 
@@ -36,6 +142,11 @@ export function gameRender() {
 		const stationColor = blinkRed ? rgb(1, 0.1, 0.1) : WHITE;
 		drawTile(s.pos, stationSize, tile(0, vec2(94, 60), imgIndex), stationColor);
 		// DrawRect(s.pos, stationSize, rgb(0.2, 0.8, 1));
+		if (s.hp > 0 && s.kills >= promotedThreshold) {
+			const starSize = vec2(0.85, 0.85);
+			const starPos = s.pos.add(vec2((stationSize.x / 2) - (starSize.x / 2), -((stationSize.y / 2) - (starSize.y / 2))));
+			drawTile(starPos, starSize, tile(0, vec2(21, 21), imgs.promotedUnitStar));
+		}
 	}
 
 	for (const w of state.walls) {
@@ -55,9 +166,11 @@ export function gameRender() {
 	}
 
 	if (state.snake) {
-		positionLogic(state.snake, state.snakeDirs, ({pos, size, color, _, __}) => {
-			drawRect(pos, size, color);
+		const snakeColor = isSnakeCollidingWithBlackHole() ? rgb(1, 0.2, 0.2) : WHITE;
+		positionLogic(state.snake, state.snakeDirs, ({pos, size}) => {
+			drawRect(pos, size, snakeColor);
 		});
+		// draw black hole as circle for debugging:
 		// Draw for debugging
 		// drawRect(state.snake[0].add(vec2(-4.4, 1)), vec2(20, 1.2), YELLOW);
 	}
@@ -98,27 +211,65 @@ export function gameRender() {
 	}
 }
 
+function drawTextScreen(text, pos, size, color=WHITE, lineWidth=0, lineColor=BLACK, textAlign='center', font=fontDefault, fontStyle='', maxWidth, lineHeight=1, angle=0, context=mainContext)
+{
+	ASSERT(isString(text), 'text must be a string');
+	ASSERT(isVector2(pos), 'pos must be a vec2');
+	ASSERT(isNumber(size), 'size must be a number');
+	ASSERT(isColor(color), 'color must be a color');
+	ASSERT(isNumber(lineWidth), 'lineWidth must be a number');
+	ASSERT(isColor(lineColor), 'lineColor must be a color');
+	ASSERT(['left','center','right'].includes(textAlign), 'align must be left, center, or right');
+	ASSERT(isString(font), 'font must be a string');
+	ASSERT(isString(fontStyle), 'fontStyle must be a string');
+	ASSERT(isNumber(angle), 'angle must be a number');
+	ASSERT(isNumber(lineHeight), 'lineHeight must be a number');
+
+	context.fillStyle = color.toString();
+	context.strokeStyle = lineColor.toString();
+	context.lineWidth = lineWidth;
+	context.textAlign = textAlign;
+	context.font = fontStyle + ' ' + size + 'px '+ font;
+	context.textBaseline = 'middle';
+
+	const lines = (text+'').split('\n');
+	const posY = pos.y - (lines.length-1) * (size * lineHeight)/2; // center vertically
+	context.save();
+	context.translate(pos.x, posY);
+	context.rotate(-angle);
+	let yOffset = 0;
+	lines.forEach(line=>
+	{
+		lineWidth && context.strokeText(line, 0, yOffset, maxWidth);
+		context.fillText(line, 0, yOffset, maxWidth);
+		yOffset += size * lineHeight;
+	});
+	context.restore();
+}
+
+
 export function gameRenderPost() {
 	if (state.introActive) {
 		drawRect(mainCanvasSize.scale(0.5), mainCanvasSize, rgb(0, 0, 0, 0.78));
 		const centerX = mainCanvasSize.x / 2;
 		const centerY = mainCanvasSize.y / 2;
 		const lineHeight = 34;
-		const startY = centerY - (((introLines.length - 1) * lineHeight) / 2);
+		const intro = state.level === 1 ? introLines : secondLevelIntroLines;
 
-		for (let i = 0; i < introLines.length; i++) {
-			drawTextScreen(
-				introLines[i],
-				vec2(centerX, startY + (i * lineHeight)),
-				26,
-				WHITE,
-				0,
-				BLACK,
-				'center',
-				gameTextFont,
-			);
-		}
-
+		drawTextScreen(
+			intro,
+			vec2(centerX, centerY),
+			26,
+			WHITE,
+			0,
+			BLACK,
+			'center',
+			gameTextFont,
+			'',
+			window.innerWidth * 0.75,
+			1.5,
+		);
+		if (outroOverlayEl) outroOverlayEl.style.display = 'none';
 		return;
 	}
 
@@ -128,9 +279,9 @@ export function gameRenderPost() {
 		drawTextScreen(state.tempTitle, vec2(mainCanvasSize.x / 2, 180), 52, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 
-	if (state.wallCount >= state.maxWalls || state.buildingPhase) {
+	if (!state.gameWon && (state.wallCount >= state.maxWalls || state.buildingPhase)) {
 		const enemiesLeft = (maxInvaders - state.totalSpawned) + state.invaders.length;
-		drawTextScreen('Enemies left: ' + enemiesLeft, vec2(mainCanvasSize.x / 2, 60), 20, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawTextScreen(enemiesLeft + ' INVADERS REMAINING', vec2(mainCanvasSize.x / 2, 60), 20, WHITE, 0, BLACK, 'center', gameTextFont);
 
 		// Glowing cyan power bar
 		{
@@ -172,10 +323,14 @@ export function gameRenderPost() {
 			ctx.font = 'bold 13px monospace';
 			ctx.textAlign = 'center';
 			ctx.fillStyle = 'rgba(140, 235, 255, 0.9)';
-			ctx.fillText('ENEMIES SHOT BONUS METER', mainCanvasSize.x / 2, barY - 4);
+			ctx.fillText('ENEMIES SHOT CONSTRUCTION BONUS', mainCanvasSize.x / 2, barY - 4);
 
 			ctx.restore();
 		}
+	}
+
+	if (state.snake && !state.hasBuiltWall) {
+		drawTextScreen('Use arrows to move, press space to build the wall', vec2(mainCanvasSize.x / 2, mainCanvasSize.y - 40), 18, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 
 	if (state.gameOver) {
@@ -189,6 +344,36 @@ export function gameRenderPost() {
 	}
 
 	if (state.gameWon && state.level === 2) {
-		drawTextScreen('YOU WIN!', mainCanvasSize.scale(0.5), 80, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawRect(mainCanvasSize.scale(0.5), mainCanvasSize, rgb(0, 0, 0, 0.82));
+		const centerX = mainCanvasSize.x / 2;
+
+		// Use worldToScreen to determine where the button row should sit (world y=7 ≈ lower third of canvas)
+		const btnScreenPos = worldToScreen(vec2(worldSize.x / 2, 15));
+		drawTextScreen('YOU WIN!', vec2(centerX, 240), 80, WHITE, 0, BLACK, 'center', gameTextFont);
+		
+		drawTextScreen(
+			outroLines,
+			vec2(centerX, mainCanvasSize.y * 0.45),
+			20,
+			WHITE,
+			0,
+			BLACK,
+			'center',
+			gameTextFont,
+			'',
+			window.innerWidth * 0.78,
+			1.8,
+		);
+
+		// Show HTML buttons positioned via worldToScreen coordinates
+		ensureOutroOverlay();
+		outroBtnRow.style.top = `${btnScreenPos.y}px`;
+		outroOverlayEl.style.display = 'block';
+		return;
+	}
+
+	// Hide outro overlay when not on the victory screen
+	if (outroOverlayEl) {
+		outroOverlayEl.style.display = 'none';
 	}
 }

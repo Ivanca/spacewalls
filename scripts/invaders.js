@@ -8,7 +8,7 @@ import {handleCollisionWithWalls} from './walls.js';
 
 export function spawnInvader() {
 	let pos;
-	const spawnFromBlackHole = state.level === 2 && state.blackHole && Math.random() < 0.5;
+	const spawnFromBlackHole = state.level === 2 && state.blackHole && Math.random() < 0.4;
 
 	if (spawnFromBlackHole) {
 		const angle = Math.random() * Math.PI * 2;

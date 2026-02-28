@@ -2,7 +2,7 @@ import {
 	vec2, WHITE, sign, tile, keyDirection,
 } from '../littlejs.esm.js';
 import {state} from './state.js';
-import {worldSize} from './constants.js';
+import {worldSize, blackHoleRadius} from './constants.js';
 import {sWall} from './sounds.js';
 import {imgs} from './assets.js';
 
@@ -27,6 +27,22 @@ function findFarthestPoint(listA, listB) {
 	}
 
 	return farthestPoint;
+}
+
+export function isSnakeCollidingWithBlackHole() {
+	if (!state.blackHole || !state.snake) {
+		return false;
+	}
+	const bhPos = state.blackHole.pos;
+	const threshold = blackHoleRadius + 1;
+	let isColliding = false;
+	// return state.snake.some(s => s.distance(bhPos) < threshold);
+	positionLogic(state.snake, state.snakeDirs, ({pos, size, color, tile: t, isMiddle}) => {
+		if (pos.distance(bhPos) < threshold) {
+			isColliding = true;
+		}
+	});
+	return isColliding;
 }
 
 export function startNewSnake() {

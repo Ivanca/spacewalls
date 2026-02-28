@@ -4,7 +4,11 @@ const xoConfig = Array.isArray(xo.default) ? xo.default : [xo.default];
 module.exports = [
 	...xoConfig,
 	{
-		files: ['game.js'],
+		files: ['**/*.js'],
+		env: {
+			browser: true,
+			es2021: true,
+		},
 		rules: {
 			'capitalized-comments': 'off',
 		},

@@ -6,11 +6,12 @@ import {
 	maxInvaders, extraWallScore, moveDelay, introGoodLuckDuration,
 } from './constants.js';
 import {
-	startNewSnake, solidifyWall, updateSnakeMovement, moveSnake,
+	startNewSnake, solidifyWall, updateSnakeMovement, moveSnake, isSnakeCollidingWithBlackHole,
 } from './snake.js';
 import {createStations, updateStations} from './stations.js';
 import {spawnInvader, updateInvaders} from './invaders.js';
 import {shootLaser, updateLasers} from './lasers.js';
+import {initializeStars} from './stars.js';
 
 export const state = {
 	snake: null,
@@ -25,7 +26,6 @@ export const state = {
 	invaders: [],
 	explosions: [],
 	lasers: [],
-	lastLaserTime: -1,
 	spawnTimer: 0,
 	totalSpawned: 0,
 	killScore: 0,
@@ -38,9 +38,10 @@ export const state = {
 	tempTitle: '',
 	level: 1,
 	blackHole: null,
+	hasBuiltWall: false,
 };
 
-export function resetGame() {
+export function resetGame(resetLevel = true) {
 	state.snake = null;
 	state.snakeDirs = [];
 	state.dir = vec2(1, 0);
@@ -62,36 +63,25 @@ export function resetGame() {
 	state.gameWon = false;
 	state.introActive = true;
 	state.tempTitleTimer = 0;
-	state.level = 1;
 	state.blackHole = null;
-
+	state.hasBuiltWall = false;
+	if (resetLevel) {
+		state.level = 1;
+	}
+	initializeStars();
 	startNewSnake();
 	createStations();
 	setPaused(true);
 }
 
 export function startLevel2() {
-	const alive = state.stations.filter(s => s.hp > 0);
-	if (!alive.length) {
-		return;
-	}
-
-	const sumPos = alive.reduce((acc, s) => acc.add(s.pos), vec2(0, 0));
-	const center = sumPos.scale(1 / alive.length);
-
-	state.blackHole = {pos: center};
 	state.level = 2;
-	state.invaders = [];
-	state.lasers = [];
-	state.explosions = [];
-	state.totalSpawned = 0;
-	state.spawnTimer = 0;
-	state.killScore = 0;
-	state.gameWon = false;
-	state.buildingPhase = false;
+	resetGame(false);
+	const sumPos = state.stations.reduce((acc, s) => acc.add(s.pos), vec2(0, 0));
+	const center = sumPos.scale(1 / state.stations.length);
+	state.blackHole = {pos: center};
 	state.tempTitle = 'LEVEL 2 - THE BLACK HOLE AWAKENS';
 	state.tempTitleTimer = 3;
-	setPaused(false);
 }
 
 function updateInvasionPhase() {
@@ -130,10 +120,10 @@ function updateInvasionPhase() {
 export function gameUpdatePost() {
 	if (state.introActive) {
 		if (keyWasPressed('Space')) {
+			// startLevel2(); // debugging
 			state.introActive = false;
 			state.tempTitleTimer = introGoodLuckDuration;
 			state.tempTitle = 'GOOD LUCK!';
-			// StartLevel2(); // debugging
 			setPaused(false);
 		}
 
@@ -171,8 +161,9 @@ export function gameUpdate() {
 	if (state.snake) {
 		updateSnakeMovement();
 
-		if ((keyWasPressed('Space') || state.mustSolidifyNextTick) && state.wallCount < state.maxWalls) {
+		if ((keyWasPressed('Space') || state.mustSolidifyNextTick) && state.wallCount < state.maxWalls && !isSnakeCollidingWithBlackHole()) {
 			solidifyWall();
+			state.hasBuiltWall = true;
 		}
 
 		state.moveTimer -= timeDelta;
