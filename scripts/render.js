@@ -142,10 +142,13 @@ export function gameRender() {
 		const stationColor = blinkRed ? rgb(1, 0.1, 0.1) : WHITE;
 		drawTile(s.pos, stationSize, tile(0, vec2(94, 60), imgIndex), stationColor);
 		// DrawRect(s.pos, stationSize, rgb(0.2, 0.8, 1));
-		if (s.hp > 0 && s.kills >= promotedThreshold) {
+		if (s.hp > 0 && s.level >= 1) {
 			const starSize = vec2(0.85, 0.85);
 			const starPos = s.pos.add(vec2((stationSize.x / 2) - (starSize.x / 2), -((stationSize.y / 2) - (starSize.y / 2))));
-			drawTile(starPos, starSize, tile(0, vec2(21, 21), imgs.promotedUnitStar));
+			// make it flash when promoted, then stay solid after that
+			if (time - 0.5 > s.promotedTime || Math.floor(time / 0.1) % 2 === 0) {
+				drawTile(starPos, starSize, tile(0, vec2(21, 21), s.level >= 2 ? imgs.goldUnitStar : imgs.silverUnitStar));
+			}
 		}
 	}
 
@@ -182,15 +185,15 @@ export function gameRender() {
 		const angle = Math.atan2(-inv.dir.y, inv.dir.x) - (Math.PI / 2);
 		inv.frameOffset ||= invFrame;
 		if (!getPaused()) {
-			inv.frame = (inv.frameOffset + invFrame) % 3;
+			inv.frame = (inv.frameOffset + invFrame) % 4;
 		}
 
 		// DrawRect(inv.pos, inv.size, rgb(1, 0.2, 0.2));
 
 		drawTile(inv.pos, inv.size, tile(
 			inv.frame,
-			vec2(42, 42),
-			imgs.invader,
+			vec2(32, 32),
+			imgs.squidAlien,
 		), WHITE, angle);
 	}
 

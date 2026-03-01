@@ -17,22 +17,25 @@ export function spawnInvader() {
 			state.blackHole.pos.y + (Math.sin(angle) * blackHoleRadius),
 		);
 	} else {
-		const side = randInt(0, 4);
+		// Pick a random point along the full perimeter so that longer sides
+		// (e.g. top/bottom on a wide screen) receive proportionally more spawns.
+		const W = worldSize.x;
+		const H = worldSize.y;
+		const perimeter = 2 * W + 2 * H;
+		const r = Math.random() * perimeter;
 
-		if (side === 0) {
-			pos = vec2(randInt(0, worldSize.x), worldSize.y);
-		}
-
-		if (side === 1) {
-			pos = vec2(randInt(0, worldSize.x), 0);
-		}
-
-		if (side === 2) {
-			pos = vec2(0, randInt(0, worldSize.y));
-		}
-
-		if (side === 3) {
-			pos = vec2(worldSize.x, randInt(0, worldSize.y));
+		if (r < W) {
+			// top
+			pos = vec2(r, H);
+		} else if (r < 2 * W) {
+			// bottom
+			pos = vec2(r - W, 0);
+		} else if (r < 2 * W + H) {
+			// left
+			pos = vec2(0, r - 2 * W);
+		} else {
+			// right
+			pos = vec2(W, r - 2 * W - H);
 		}
 	}
 
@@ -50,6 +53,7 @@ export function spawnInvader() {
 }
 
 export function updateInvaders() {
+	state.invaders = state.invaders.filter(i => i.hp > 0);
 	for (const inv of state.invaders) {
 		const aliveStations = state.stations.filter(s => s.hp > 0);
 		if (!aliveStations.length) {
@@ -83,23 +87,27 @@ export function updateInvaders() {
 		inv.pos = inv.pos.add(dirTo);
 		inv.dir = dirTo;
 
-		if (isOverlapping(inv.pos, inv.size, nearest.pos, stationSize)) {
-			nearest.hp--;
-			nearest.lastHitTime = time;
-			// Push station away from invader
-			const pushDir = nearest.pos.subtract(inv.pos).normalize();
-			nearest.vel = nearest.vel.add(pushDir.scale(1.05));
-			inv.hp = 0;
-			state.explosions.push({
-				pos: inv.pos.add(inv.dir.scale(10)), frame: 0, start: Date.now(),
-			});
-			sStationHit.play();
-		}
-
 		const pointsCrashed = [];
 		const collided = handleCollisionWithWalls(inv.pos, inv.size, pointsCrashed);
 		if (collided) {
 			inv.hp = 0;
+			return;
+		}
+		// check collision agains all stations:
+		for (const s of aliveStations) {
+			if (isOverlapping(inv.pos, inv.size, s.pos, stationSize)) {
+				s.hp--;
+				s.lastHitTime = time;
+				// Push station away from invader
+				const pushDir = s.pos.subtract(inv.pos).normalize();
+				s.vel = s.vel.add(pushDir.scale(1.05));
+				inv.hp = 0;
+				state.explosions.push({
+					pos: inv.pos.add(inv.dir.scale(10)), frame: 0, start: Date.now(),
+				});
+				sStationHit.play();
+				break;
+			}
 		}
 	}
 }

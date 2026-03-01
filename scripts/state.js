@@ -131,7 +131,11 @@ export function gameUpdatePost() {
 	}
 
 	if (state.gameOver && keyWasPressed('Space')) {
-		resetGame();
+		if (state.level === 2) {
+			startLevel2();
+		} else {
+			resetGame();
+		}
 		return;
 	}
 

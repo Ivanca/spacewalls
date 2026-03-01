@@ -21,29 +21,26 @@ export function shootLaser() {
 	let best = candidates[0];
 
 	let minDist = mousePos.distance(best.pos);
-	let bestIsAPromoted = best.kills >= promotedThreshold;
 	for (const s of candidates) {
 		const d = mousePos.distance(s.pos);
-		const isPromoted = s.kills >= promotedThreshold;
 		if (d < minDist) {
 			minDist = d;
 			best = s;
-			bestIsAPromoted = isPromoted;
 		}
 	}
 
-	if (time - best.lastLaserTime <= 0.1) {
+	if (best.level === 1 && time - best.lastLaserTime <= 0.075) {
 		return;
-	}
-
-	if (bestIsAPromoted && time - best.lastLaserTime <= 0.15) {
+	} else if (best.level >= 2 && time - best.lastLaserTime <= 0.2) {
+		return
+	} else if (time - best.lastLaserTime <= 0.15) {
 		return;
 	}
 
 	const dirToMouse = mousePos.subtract(best.pos).normalize(0.6);
 	state.lasers.push({pos: best.pos, vel: dirToMouse, sourceStation: best});
 
-	if (bestIsAPromoted) {
+	if (best.level >= 2) {
 		const baseAngle = Math.atan2(dirToMouse.y, dirToMouse.x);
 		const spread = 5 * (Math.PI / 180);
 		const dir1 = vec2(Math.cos(baseAngle + spread), Math.sin(baseAngle + spread)).normalize(0.6);
@@ -85,6 +82,11 @@ export function updateLasers() {
 					state.killScore++;
 					if (l.sourceStation) {
 						l.sourceStation.kills++;
+						const level = Math.floor(l.sourceStation.kills / promotedThreshold);
+						if (level > l.sourceStation.level && level < 3) {
+							l.sourceStation.level = level;
+							l.sourceStation.promotedTime = time;
+						}
 					}
 				}
 
@@ -102,5 +104,4 @@ export function updateLasers() {
 
 		return x > -2 && x < worldSize.x + 2 && y > -2 && y < worldSize.y + 2;
 	});
-	state.invaders = state.invaders.filter(i => i.hp > 0);
 }

@@ -1,11 +1,12 @@
 import {vec2} from '../littlejs.esm.js';
 
+// Mutable – x/y are filled in by game.js before engineInit based on screen size
 export const worldSize = vec2(50, 38);
 export const stationSize = vec2(3, 2);
-export const extraWallScore = 150;
+export const extraWallScore = 130;
 export const moveDelay = 0.012;
-export const maxInvaders = 900;
-export const promotedThreshold = 70;
+export const maxInvaders = 888;
+export const promotedThreshold = 30;
 export const gameTextFont = 'PressStart2P';
 export const introGoodLuckDuration = 2.2;
 export const blackHoleRadius = 1.5;
