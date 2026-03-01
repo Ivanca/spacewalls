@@ -197,7 +197,7 @@ export function gameRender() {
 		), WHITE, angle);
 	}
 
-	for (const l of state.lasers) {
+	for (const l of state.bullets) {
 		const angle = Math.atan2(-l.vel.y, l.vel.x);
 		// DrawRect(l.pos, vec2(0.3, 0.3), rgb(1, 1, 0.3));
 		drawTile(l.pos, vec2(0.3, 0.3), tile(0, vec2(24, 24), imgs.bullet), WHITE, angle);

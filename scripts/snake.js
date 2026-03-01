@@ -77,7 +77,7 @@ export function startNewSnake() {
 
 	state.dir = vec2(1, 0);
 	state.snakeDirs = [];
-	for (let i = 0; i < 100; i++) {
+	for (let i = 0; i < 90; i++) {
 		state.snake.push(start.subtract(vec2(i * 2, 0).scale(0.1)));
 		state.snakeDirs.push(state.dir.copy());
 	}

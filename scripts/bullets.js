@@ -3,11 +3,12 @@ import {
 } from '../littlejs.esm.js';
 import {state} from './state.js';
 import {worldSize, blackHoleRadius, promotedThreshold} from './constants.js';
-import {sLaser, sWall, sHit} from './sounds.js';
+import {sBullet, sWall, sHit} from './sounds.js';
 import {hasClearShot} from './stations.js';
 import {handleCollisionWithWalls} from './walls.js';
+import {GUNS, GUN_BY_LEVEL} from './guns.js';
 
-export function shootLaser() {
+export function shootBullet() {
 	const alive = state.stations.filter(s => s.hp > 0);
 	if (!alive.length) {
 		return;
@@ -29,32 +30,28 @@ export function shootLaser() {
 		}
 	}
 
-	if (best.level === 1 && time - best.lastLaserTime <= 0.075) {
-		return;
-	} else if (best.level >= 2 && time - best.lastLaserTime <= 0.2) {
-		return
-	} else if (time - best.lastLaserTime <= 0.15) {
+	const gun = GUNS[best.gun] ?? GUNS.basic;
+
+	if (time - best.lastBulletTime <= gun.fireRate) {
 		return;
 	}
 
-	const dirToMouse = mousePos.subtract(best.pos).normalize(0.6);
-	state.lasers.push({pos: best.pos, vel: dirToMouse, sourceStation: best});
+	const dirToMouse = mousePos.subtract(best.pos).normalize();
+	const baseAngle = Math.atan2(dirToMouse.y, dirToMouse.x);
 
-	if (best.level >= 2) {
-		const baseAngle = Math.atan2(dirToMouse.y, dirToMouse.x);
-		const spread = 5 * (Math.PI / 180);
-		const dir1 = vec2(Math.cos(baseAngle + spread), Math.sin(baseAngle + spread)).normalize(0.6);
-		const dir2 = vec2(Math.cos(baseAngle - spread), Math.sin(baseAngle - spread)).normalize(0.6);
-		state.lasers.push({pos: best.pos, vel: dir1, sourceStation: null});
-		state.lasers.push({pos: best.pos, vel: dir2, sourceStation: null});
+	for (let i = 0; i < gun.bullets.length; i++) {
+		const bulletDef = gun.bullets[i];
+		const angle = baseAngle + bulletDef.angleOffset;
+		const vel = vec2(Math.cos(angle), Math.sin(angle)).normalize(bulletDef.speed);
+		state.bullets.push({pos: best.pos, vel, sourceStation: i === 0 ? best : null});
 	}
 
-	sLaser.play(best.pos);
-	best.lastLaserTime = time;
+	sBullet.play(best.pos);
+	best.lastBulletTime = time;
 }
 
-export function updateLasers() {
-	for (const l of state.lasers) {
+export function updateBullets() {
+	for (const l of state.bullets) {
 		l.pos = l.pos.add(l.vel);
 
 		// Collide with walls
@@ -85,6 +82,7 @@ export function updateLasers() {
 						const level = Math.floor(l.sourceStation.kills / promotedThreshold);
 						if (level > l.sourceStation.level && level < 3) {
 							l.sourceStation.level = level;
+							l.sourceStation.gun = GUN_BY_LEVEL[level] ?? l.sourceStation.gun;
 							l.sourceStation.promotedTime = time;
 						}
 					}
@@ -96,7 +94,7 @@ export function updateLasers() {
 		}
 	}
 
-	state.lasers = state.lasers.filter(({hit, pos}) => {
+	state.bullets = state.bullets.filter(({hit, pos}) => {
 		const {x, y} = pos;
 		if (hit) {
 			return false;

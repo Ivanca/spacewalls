@@ -10,7 +10,7 @@ import {
 } from './snake.js';
 import {createStations, updateStations} from './stations.js';
 import {spawnInvader, updateInvaders} from './invaders.js';
-import {shootLaser, updateLasers} from './lasers.js';
+import {shootBullet, updateBullets} from './bullets.js';
 import {initializeStars} from './stars.js';
 
 export const state = {
@@ -25,7 +25,7 @@ export const state = {
 	stations: [],
 	invaders: [],
 	explosions: [],
-	lasers: [],
+	bullets: [],
 	spawnTimer: 0,
 	totalSpawned: 0,
 	killScore: 0,
@@ -52,7 +52,7 @@ export function resetGame(resetLevel = true) {
 	state.gameOver = false;
 	state.stations = [];
 	state.invaders = [];
-	state.lasers = [];
+	state.bullets = [];
 	state.explosions = [];
 	state.spawnTimer = 0;
 	state.totalSpawned = 0;
@@ -100,10 +100,10 @@ function updateInvasionPhase() {
 	}
 
 	updateInvaders();
-	updateLasers();
+	updateBullets();
 
 	if (mouseIsDown(0)) {
-		shootLaser();
+		shootBullet();
 	}
 
 	if (state.killScore >= extraWallScore && state.totalSpawned < maxInvaders) {

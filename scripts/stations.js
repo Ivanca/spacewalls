@@ -39,7 +39,7 @@ export function createStations() {
 
 			if (!tooClose) {
 				state.stations.push({
-					pos, hp: 10, maxHp: 10, vel: vec2(0, 0), lastHitTime: -Infinity, lastLaserTime: -Infinity, kills: 0, level: 0,
+					pos, hp: 10, maxHp: 10, vel: vec2(0, 0), lastHitTime: -Infinity, lastBulletTime: -Infinity, kills: 0, level: 0, gun: 'basic',
 				});
 				placed = true;
 				break;
@@ -51,7 +51,7 @@ export function createStations() {
 			const angle = rand(0, Math.PI * 2);
 			const pos = center.add(vec2(Math.cos(angle) * minDistance, Math.sin(angle) * minDistance));
 			state.stations.push({
-				pos, hp: 10, maxHp: 10, vel: vec2(0, 0), lastHitTime: -Infinity, kills: 0, level: 0,
+				pos, hp: 10, maxHp: 10, vel: vec2(0, 0), lastHitTime: -Infinity, kills: 0, level: 0, gun: 'basic',
 			});
 		}
 	}
