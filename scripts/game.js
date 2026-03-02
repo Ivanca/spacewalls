@@ -4,11 +4,11 @@ import {imagesSrcArray} from './assets.js';
 import {resetGame, gameUpdate, gameUpdatePost} from './state.js';
 import {gameRender, gameRenderPost} from './render.js';
 
-const TILE_SIZE = 23; // pixels per world unit (camera scale)
+const TILE_SIZE = window.innerHeight / 41; // pixels per world unit (camera scale)
 
 function computeWorldSize() {
-	worldSize.x = Math.floor(window.innerWidth  / TILE_SIZE);
-	worldSize.y = Math.floor(window.innerHeight / TILE_SIZE);
+	worldSize.x = Math.ceil(window.innerWidth  / TILE_SIZE);
+	worldSize.y = Math.ceil(window.innerHeight / TILE_SIZE);
 }
 
 function isPortrait() {

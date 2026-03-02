@@ -196,6 +196,7 @@ function drawTextScreen(text, pos, size, color=WHITE, lineWidth=0, lineColor=BLA
 
 
 export function gameRenderPost() {
+	const defaultFontSize = Math.floor(innerWidth / 106);
 	if (state.introActive) {
 		drawRect(mainCanvasSize.scale(0.5), mainCanvasSize, rgb(0, 0, 0, 0.78));
 		const centerX = mainCanvasSize.x / 2;
@@ -277,21 +278,21 @@ export function gameRenderPost() {
 	}
 
 	if (state.snake && !state.hasBuiltWall) {
-		drawTextScreen('Use arrows to move, press space to build the wall', vec2(mainCanvasSize.x / 2, mainCanvasSize.y - 40), 18, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawTextScreen('Use arrows to move, press space to build the wall', vec2(mainCanvasSize.x / 2, mainCanvasSize.y - 40), defaultFontSize, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 
 	if (state.gameOver) {
-		drawTextScreen('GAME OVER', mainCanvasSize.scale(0.5), 80, WHITE, 0, BLACK, 'center', gameTextFont);
-		drawTextScreen('PRESS SPACE TO RESTART', vec2(mainCanvasSize.x / 2, (mainCanvasSize.y / 2) + 60), 24, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawTextScreen('GAME OVER', mainCanvasSize.scale(0.5), defaultFontSize * 4.5, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawTextScreen('PRESS SPACE TO RESTART', vec2(mainCanvasSize.x / 2, (mainCanvasSize.y / 2) + 60), defaultFontSize * 1.35, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 
 	if (state.gameWon && state.level === 1) {
-		drawTextScreen('LEVEL 1 CLEAR!', mainCanvasSize.scale(0.5), 80, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawTextScreen('LEVEL 1 CLEAR!', mainCanvasSize.scale(0.5), defaultFontSize * 4.5, WHITE, 0, BLACK, 'center', gameTextFont);
 		drawTextScreen('PRESS SPACE FOR LEVEL 2', vec2(mainCanvasSize.x / 2, (mainCanvasSize.y / 2) + 60), 24, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 
 	if (state.gameWon && state.level === 2) {
-		drawTextScreen('LEVEL 2 CLEAR!', mainCanvasSize.scale(0.5), 80, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawTextScreen('LEVEL 2 CLEAR!', mainCanvasSize.scale(0.5), defaultFontSize * 4.5, WHITE, 0, BLACK, 'center', gameTextFont);
 		drawTextScreen('PRESS SPACE FOR LEVEL 3', vec2(mainCanvasSize.x / 2, (mainCanvasSize.y / 2) + 60), 24, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 
@@ -301,12 +302,12 @@ export function gameRenderPost() {
 
 		// Use worldToScreen to determine where the button row should sit (world y=7 ≈ lower third of canvas)
 		const btnScreenPos = worldToScreen(vec2(worldSize.x / 2, 15));
-		drawTextScreen('YOU WIN!', vec2(centerX, 240), 80, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawTextScreen('YOU WIN!', vec2(centerX, 240), defaultFontSize * 4.5, WHITE, 0, BLACK, 'center', gameTextFont);
 		
 		drawTextScreen(
 			outroLines,
 			vec2(centerX, mainCanvasSize.y * 0.45),
-			20,
+			defaultFontSize,
 			WHITE,
 			0,
 			BLACK,
