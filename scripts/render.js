@@ -17,98 +17,26 @@ import {positionLogic, isSnakeCollidingWithBlackHole} from './snake.js';
 import {getStarsPositions} from './stars.js';
 
 // ---------- Outro overlay (DOM elements shown on level 2 victory) ----------
-let outroOverlayEl = null;
-let outroBtnRow = null;
+const outroOverlayEl = document.getElementById('outro-overlay');
+const outroBtnRow = document.getElementById('outro-btn-row');
+const shareBtn = document.getElementById('share-btn');
+const shareDropdown = document.getElementById('share-dropdown');
+const ytBtn = document.getElementById('yt-btn');
 
-function ensureOutroOverlay() {
-	if (outroOverlayEl) return;
-
-	outroOverlayEl = document.createElement('div');
-	outroOverlayEl.id = 'outro-overlay';
-	outroOverlayEl.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;display:none;pointer-events:none;z-index:100;container-type: size;';
-
-	outroBtnRow = document.createElement('div');
-	outroBtnRow.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);display:flex;gap:16px;pointer-events:all;';
-
-	const btnBase = [
-		'background:#0a0a12',
-		'color:#e0f8ff',
-		'border:2px solid #00e8ff',
-		'border-radius:6px',
-		'padding:10px 22px',
-		'font-family:PressStart2P,monospace',
-		'font-size: 1.1cqi',
-		'cursor:pointer',
-		'text-shadow:0 0 8px #00e8ff',
-		'box-shadow:0 0 14px #00e8ff55',
-		'position:relative',
-	].join(';');
-
-	// --- Share button with dropdown ---
-	const shareWrapper = document.createElement('div');
-	shareWrapper.style.cssText = 'position:relative;';
-
-	const shareBtn = document.createElement('button');
-	shareBtn.textContent = 'Share Game';
-	shareBtn.style.cssText = btnBase;
-
-	const dropdown = document.createElement('div');
-	dropdown.style.cssText = [
-		'display:none',
-		'position:absolute',
-		'bottom:calc(100% + 8px)',
-		'left:0',
-		'background:#0a0a12',
-		'border:2px solid #00e8ff',
-		'border-radius:6px',
-		'overflow:hidden',
-		'z-index:101',
-		'min-width:170px',
-		'white-space:nowrap',
-	].join(';');
-
-	const gameUrl = 'https://www.spacewallsgame.com';
-	const shareOpts = [
-		['Twitter / X',  `https://twitter.com/intent/tweet?url=${encodeURIComponent(gameUrl)}&text=${encodeURIComponent('Check out Space Walls! ')}` ],
-		['Facebook',     `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(gameUrl)}`],
-		['Bluesky',      `https://bsky.app/intent/compose?text=${encodeURIComponent('Check out Space Walls! ' + gameUrl)}`],
-		['Instagram',    `https://www.instagram.com/`],
-		['Email',        `mailto:?subject=${encodeURIComponent('Check out Space Walls!')}&body=${encodeURIComponent(gameUrl)}`],
-	];
-
-	for (const [label, href] of shareOpts) {
-		const a = document.createElement('a');
-		a.textContent = label;
-		a.href = href;
-		a.target = '_blank';
-		a.rel = 'noopener noreferrer';
-		a.style.cssText = 'display:block;padding:9px 16px;color:#e0f8ff;font-family:PressStart2P,monospace;font-size: 0.9cqi;text-decoration:none;';
-		a.addEventListener('mouseenter', () => { a.style.background = 'rgba(0,232,255,0.15)'; });
-		a.addEventListener('mouseleave', () => { a.style.background = ''; });
-		dropdown.appendChild(a);
-	}
-
+if (shareBtn && shareDropdown) {
 	shareBtn.addEventListener('click', (e) => {
 		e.stopPropagation();
-		dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+		shareDropdown.style.display = shareDropdown.style.display === 'block' ? 'none' : 'block';
 	});
-	document.addEventListener('click', () => { dropdown.style.display = 'none'; });
+	document.addEventListener('click', () => {
+		shareDropdown.style.display = 'none';
+	});
+}
 
-	shareWrapper.appendChild(dropdown);
-	shareWrapper.appendChild(shareBtn);
-
-	// --- YouTube button ---
-	const ytBtn = document.createElement('button');
-	ytBtn.textContent = 'YouTube Channel';
-	ytBtn.style.cssText = btnBase.replace(/00e8ff/g, 'ff4040').replace(/00e8ff55/g, 'ff404055');
+if (ytBtn) {
 	ytBtn.addEventListener('click', () => {
 		window.open('https://www.youtube.com/channel/UCtmf9FLAjo0W1SxfhCZzp1w?sub_confirmation=1', '_blank');
 	});
-
-	outroBtnRow.appendChild(shareWrapper);
-	outroBtnRow.appendChild(ytBtn);
-	outroOverlayEl.appendChild(outroBtnRow);
-	document.body.appendChild(outroOverlayEl);
 }
 // -------------------------------------------------------------------------
 
@@ -390,14 +318,16 @@ export function gameRenderPost() {
 		);
 
 		// Show HTML buttons positioned via worldToScreen coordinates
-		ensureOutroOverlay();
-		outroBtnRow.style.top = `${btnScreenPos.y}px`;
-		outroOverlayEl.style.display = 'block';
+		if (outroOverlayEl && outroBtnRow) {
+			outroBtnRow.style.top = `${btnScreenPos.y}px`;
+			outroOverlayEl.style.display = 'block';
+		}
 		return;
 	}
 
 	// Hide outro overlay when not on the victory screen
 	if (outroOverlayEl) {
 		outroOverlayEl.style.display = 'none';
+		if (shareDropdown) shareDropdown.style.display = 'none';
 	}
 }

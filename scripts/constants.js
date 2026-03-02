@@ -10,10 +10,10 @@ export const gameTextFont = 'PressStart2P';
 export const introGoodLuckDuration = 2.2;
 export const blackHoleRadius = 1.5;
 // Change to 2 or 3 to skip straight to that level (useful for testing)
-export const startingLevel = 3;
+export const startingLevel = 1;
 export const introLines = `
 Greetings General, first we enter the building stage
-to deploy 3 walls to protect our space stations,
+to deploy 3 walls to protect our space stations
 from invaders that will come from all
 directions, remember that our stations
 cant move but they can shoot.
