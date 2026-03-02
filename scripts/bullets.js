@@ -2,14 +2,14 @@ import {
 	vec2, isOverlapping, time, mousePos,
 } from '../littlejs.esm.js';
 import {state} from './state.js';
-import {worldSize, blackHoleRadius, promotedThreshold} from './constants.js';
+import {worldSize, blackHoleRadius, promotedThreshold, stationSize} from './constants.js';
 import {sBullet, sWall, sHit} from './sounds.js';
 import {hasClearShot} from './stations.js';
 import {handleCollisionWithWalls} from './walls.js';
 import {GUNS, GUN_BY_LEVEL} from './guns.js';
 
 export function shootBullet() {
-	const alive = state.stations.filter(s => s.hp > 0);
+	const alive = state.stations.filter(s => s.hp > 0 && !s.isMedic);
 	if (!alive.length) {
 		return;
 	}
@@ -52,44 +52,59 @@ export function shootBullet() {
 
 export function updateBullets() {
 	for (const l of state.bullets) {
+		const prevPos = l.pos.copy();
 		l.pos = l.pos.add(l.vel);
 
 		// Collide with walls
-		const hit = handleCollisionWithWalls(l.pos, vec2(0.3, 0.3));
+		const hit = handleCollisionWithWalls(l.pos, vec2(0.3, 0.3), prevPos, 1);
 		if (hit) {
 			l.hit = true;
 			sWall.play(l.pos);
 		}
 
-		// Absorbed by black hole inner radius
-		if (state.blackHole) {
-			const dx = l.pos.x - state.blackHole.pos.x;
-			const dy = l.pos.y - state.blackHole.pos.y;
+		// Absorbed by black holes inner radius
+		for (const bh of state.blackHoles) {
+			const dx = l.pos.x - bh.pos.x;
+			const dy = l.pos.y - bh.pos.y;
 			if ((dx * dx) + (dy * dy) < blackHoleRadius * blackHoleRadius) {
 				l.hit = true;
 			}
 		}
 
-		// Collide with invaders
-		for (const inv of state.invaders) {
-			if (isOverlapping(l.pos, vec2(0.3, 0.3), inv.pos, inv.size)) {
-				const wasAlive = inv.hp > 0;
-				inv.hp -= 2;
-				if (wasAlive && inv.hp <= 0) {
-					state.killScore++;
-					if (l.sourceStation) {
-						l.sourceStation.kills++;
-						const level = Math.floor(l.sourceStation.kills / promotedThreshold);
-						if (level > l.sourceStation.level && level < 3) {
-							l.sourceStation.level = level;
-							l.sourceStation.gun = GUN_BY_LEVEL[level] ?? l.sourceStation.gun;
-							l.sourceStation.promotedTime = time;
+		// Healing bullets: collide with stations to restore HP
+		if (l.healing) {
+			for (const s of state.stations) {
+				if (s.hp > 0 && isOverlapping(l.pos, vec2(0.5, 0.5), s.pos, vec2(3, 2)) && !s.isMedic) {
+					s.hp = Math.min(s.maxHp, s.hp + 1);
+					l.hit = true;
+					sHit.play(s.pos);
+					break;
+				}
+			}
+		}
+
+		// Collide with invaders (skip for healing bullets)
+		if (!l.healing) {
+			for (const inv of state.invaders) {
+				if (isOverlapping(l.pos, vec2(0.3, 0.3), inv.pos, inv.size)) {
+					const wasAlive = inv.hp > 0;
+					inv.hp -= 2;
+					if (wasAlive && inv.hp <= 0) {
+						state.killScore++;
+						if (l.sourceStation) {
+							l.sourceStation.kills++;
+							const level = Math.floor(l.sourceStation.kills / promotedThreshold);
+							if (level > l.sourceStation.level && level < 3) {
+								l.sourceStation.level = level;
+								l.sourceStation.gun = GUN_BY_LEVEL[level] ?? l.sourceStation.gun;
+								l.sourceStation.promotedTime = time;
+							}
 						}
 					}
-				}
 
-				l.hit = true;
-				sHit.play(inv.pos);
+					l.hit = true;
+					sHit.play(inv.pos);
+				}
 			}
 		}
 	}
@@ -102,4 +117,25 @@ export function updateBullets() {
 
 		return x > -2 && x < worldSize.x + 2 && y > -2 && y < worldSize.y + 2;
 	});
+}
+
+
+// Returns true if a healing bullet was fired, false otherwise.
+export function tryShootHealingBullet(clickPos) {
+	if (state.level < 3) return false;
+
+	const medic = state.stations.find(s => s.isMedic && s.hp > 0);
+	if (!medic || medic.isInCooldown) return false;
+	const alive = state.stations.filter(s => s.hp > 0 && !s.isMedic);
+	const target = alive.find(s => isOverlapping(clickPos, vec2(1, 1), s.pos, stationSize));
+	if (!target) return false;
+
+	medic.lastHealTime = time;
+	const dir = target.pos.subtract(medic.pos).normalize(0.2);
+	state.bullets.push({
+		pos: medic.pos.copy(),
+		vel: dir,
+		healing: true,
+	});
+	return true;
 }

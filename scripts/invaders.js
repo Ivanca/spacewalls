@@ -1,20 +1,22 @@
 import {
-	vec2, randInt, isOverlapping, time,
+	vec2, randInt, isOverlapping, time, timeDelta,
 } from '../littlejs.esm.js';
 import {state} from './state.js';
 import {worldSize, stationSize, blackHoleRadius} from './constants.js';
 import {sStationHit} from './sounds.js';
 import {handleCollisionWithWalls} from './walls.js';
+import {hasClearShot} from './stations.js';
 
 export function spawnInvader() {
 	let pos;
-	const spawnFromBlackHole = state.level === 2 && state.blackHole && Math.random() < 0.4;
+	const spawnFromBlackHole = state.blackHoles.length > 0 && Math.random() < 0.3333;
 
 	if (spawnFromBlackHole) {
+		const bh = state.blackHoles[Math.floor(Math.random() * state.blackHoles.length)];
 		const angle = Math.random() * Math.PI * 2;
 		pos = vec2(
-			state.blackHole.pos.x + (Math.cos(angle) * blackHoleRadius),
-			state.blackHole.pos.y + (Math.sin(angle) * blackHoleRadius),
+			bh.pos.x + (Math.cos(angle) * blackHoleRadius),
+			bh.pos.y + (Math.sin(angle) * blackHoleRadius),
 		);
 	} else {
 		// Pick a random point along the full perimeter so that longer sides
@@ -84,11 +86,11 @@ export function updateInvaders() {
 		inv.targetPos = inv.targetPos.lerp(nearest.pos, 0.12);
 
 		const dirTo = inv.targetPos.subtract(inv.pos).normalize(0.05);
+		const prevPos = inv.pos.copy();
 		inv.pos = inv.pos.add(dirTo);
 		inv.dir = dirTo;
 
-		const pointsCrashed = [];
-		const collided = handleCollisionWithWalls(inv.pos, inv.size, pointsCrashed);
+		const collided = handleCollisionWithWalls(inv.pos, inv.size, prevPos, 2);
 		if (collided) {
 			inv.hp = 0;
 			return;
@@ -111,3 +113,4 @@ export function updateInvaders() {
 		}
 	}
 }
+

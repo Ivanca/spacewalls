@@ -2,8 +2,8 @@ import {isOverlapping} from '../littlejs.esm.js';
 import {state} from './state.js';
 import {sWallHit} from './sounds.js';
 
-export const handleCollisionWithWalls = (pos, size) => {
-	const pointsCrashed = [];
+export const handleCollisionWithWalls = (pos, size, destroyNear = null, destroyCount = 1) => {
+	let pointsCrashed = [];
 	for (const w of state.walls) {
 		const index = state.walls.indexOf(w);
 		for (const p of w) {
@@ -11,6 +11,15 @@ export const handleCollisionWithWalls = (pos, size) => {
 				pointsCrashed.push({index, p});
 			}
 		}
+	}
+
+	if (destroyNear && pointsCrashed.length > 1) {
+		let sortByClosest = pointsCrashed.sort((a, b) => {
+			const da = a.p.pos.distance(destroyNear);
+			const db = b.p.pos.distance(destroyNear);
+			return da - db;
+		});
+		pointsCrashed = sortByClosest.slice(0, destroyCount);
 	}
 
 	for (const sc of pointsCrashed) {

@@ -12,7 +12,7 @@
 export const GUNS = {
 	basic: {
 		id: 'basic',
-		fireRate: 0.15,
+		fireRate: 0.2,
 		bullets: [
 			{angleOffset: 0, speed: 0.6},
 		],
@@ -20,7 +20,7 @@ export const GUNS = {
 
 	rapid: {
 		id: 'rapid',
-		fireRate: 0.075,
+		fireRate: 0.1,
 		bullets: [
 			{angleOffset: 0, speed: 0.6},
 		],
@@ -28,7 +28,7 @@ export const GUNS = {
 
 	spread: {
 		id: 'spread',
-		fireRate: 0.2,
+		fireRate: 0.25,
 		bullets: [
 			{angleOffset: 0,                       speed: 0.6},
 			{angleOffset:  5 * (Math.PI / 180),    speed: 0.6},

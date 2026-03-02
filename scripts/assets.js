@@ -1,6 +1,7 @@
 export const imgs = {
 	invader: 'images/invader2-42x42.png',
 	spaceStation: 'images/space-station-94x60.png',
+	healingStation: 'images/healing-space-station-94x60.png',
 	deadSpaceStation: 'images/dead-space-station-94x60.png',
 	explosion: 'images/explosion-18x18.png',
 	bullet: 'images/bullet-24x24.png',

@@ -1,59 +1,84 @@
 import {
-	vec2, rand, isOverlapping, isIntersecting, timeDelta,
+	vec2, rand, isOverlapping, isIntersecting, timeDelta, time,
 } from '../littlejs.esm.js';
 import {state} from './state.js';
 import {worldSize, stationSize, blackHoleRadius} from './constants.js';
 import {sHit} from './sounds.js';
 
-export function createStations() {
+function placeStation(extra = {}) {
 	const center = worldSize.scale(0.5);
-	const stationCount = 5;
 	const minDistance = 7;
 	const maxDistance = 11;
 	const minDistanceBetweenStations = 5;
-
-	state.stations = [];
 	const maxAttempts = 1000;
 
-	for (let i = 0; i < stationCount; i++) {
-		let placed = false;
-		for (let attempt = 0; attempt < maxAttempts; attempt++) {
-			const angle = rand(0, Math.PI * 2);
-			const distance = rand(minDistance, maxDistance);
-			const offset = vec2(Math.cos(angle) * distance, Math.sin(angle) * distance);
-			const pos = center.add(offset);
+	for (let attempt = 0; attempt < maxAttempts; attempt++) {
+		const angle = rand(0, Math.PI * 2);
+		const distance = rand(minDistance, maxDistance);
+		const offset = vec2(Math.cos(angle) * distance, Math.sin(angle) * distance);
+		const pos = center.add(offset);
 
-			// Ensure within world bounds
-			if (pos.x < 1 || pos.x > worldSize.x - 1 || pos.y < 1 || pos.y > worldSize.y - 1) {
-				continue;
-			}
+		if (pos.x < 1 || pos.x > worldSize.x - 1 || pos.y < 1 || pos.y > worldSize.y - 1) {
+			continue;
+		}
 
-			// Ensure minimum distance from other stations
-			let tooClose = false;
-			for (const s of state.stations) {
-				if (pos.distance(s.pos) < minDistanceBetweenStations) {
-					tooClose = true;
-					break;
-				}
-			}
-
-			if (!tooClose) {
-				state.stations.push({
-					pos, hp: 10, maxHp: 10, vel: vec2(0, 0), lastHitTime: -Infinity, lastBulletTime: -Infinity, kills: 0, level: 0, gun: 'basic',
-				});
-				placed = true;
+		let tooClose = false;
+		for (const s of state.stations) {
+			if (pos.distance(s.pos) < minDistanceBetweenStations) {
+				tooClose = true;
 				break;
 			}
 		}
 
-		if (!placed) {
-			// Fallback: place at a random angle with minDistance
-			const angle = rand(0, Math.PI * 2);
-			const pos = center.add(vec2(Math.cos(angle) * minDistance, Math.sin(angle) * minDistance));
+		if (!tooClose) {
 			state.stations.push({
-				pos, hp: 10, maxHp: 10, vel: vec2(0, 0), lastHitTime: -Infinity, kills: 0, level: 0, gun: 'basic',
+				pos, hp: 10, maxHp: 10, vel: vec2(0, 0), lastHitTime: -Infinity, lastBulletTime: -Infinity, kills: 0, level: 0, gun: 'basic', ...extra,
 			});
+			return;
 		}
+	}
+
+	// Fallback
+	const angle = rand(0, Math.PI * 2);
+	const pos = worldSize.scale(0.5).add(vec2(Math.cos(angle) * minDistance, Math.sin(angle) * minDistance));
+	state.stations.push({
+		pos, hp: 10, maxHp: 10, vel: vec2(0, 0), lastHitTime: -Infinity, lastBulletTime: -Infinity, kills: 0, level: 0, gun: 'basic', ...extra,
+	});
+}
+
+export function createStations() {
+	state.stations = [];
+	const stationCount = state.level >= 3 ? 4 : 5;
+	for (let i = 0; i < stationCount; i++) {
+		placeStation();
+	}
+	if (state.level >= 3) {
+		placeStation({isMedic: true, lastHealTime: -Infinity});
+		// swap the position of the medic station so is not any of the 2 stations closest to the 2 black holes
+	}
+}
+
+export function fixMedicStationPosition() {
+	if (state.level < 3) {
+		return;
+	}
+	const stationClosestToBH1 = state.stations.reduce((closest, s) => {
+		const d = s.pos.distance(state.blackHoles[0].pos);
+		return d < closest.distance ? {station: s, distance: d} : closest;
+	}, {station: null, distance: Infinity});
+	const stationClosestToBH2 = state.stations.reduce((closest, s) => {
+		const d = s.pos.distance(state.blackHoles[1].pos);
+		return d < closest.distance ? {station: s, distance: d} : closest;
+	}, {station: null, distance: Infinity});
+	const restOfTheStations = state.stations.filter(s => s !== stationClosestToBH1.station && s !== stationClosestToBH2.station);
+
+	const medic = state.stations.find(s => s.isMedic);
+	if (medic === stationClosestToBH1.station || medic === stationClosestToBH2.station) {
+		// swap medic with a random station from the rest
+		const swapWith = restOfTheStations[Math.floor(Math.random() * restOfTheStations.length)];
+		const tempPos = medic.pos;
+		medic.pos = swapWith.pos;
+		swapWith.pos = tempPos;
 	}
 }
 
@@ -86,8 +111,12 @@ export function hasClearShot(stationPos, target) {
 		}
 	}
 
-	if (state.blackHole && lineIntersectsCircle(start, target, state.blackHole.pos, blackHoleRadius)) {
-		return false;
+	if (state.blackHoles) {
+		for (const bh of state.blackHoles) {
+			if (lineIntersectsCircle(start, target, bh.pos, blackHoleRadius)) {
+				return false;
+			}
+		}
 	}
 
 	return true;
@@ -105,6 +134,13 @@ export function updateStations() {
 	const maxMovePerStep = 0.08;
 	const maxWallSolveIterations = 10;
 	const bias = 0.0005;
+
+	const cooldown = 2; // seconds
+	const medic = state.stations.find(s => s.isMedic && s.hp > 0);
+
+	if (medic && !state.buildingPhase) {
+		medic.isInCooldown = time - medic.lastHealTime < cooldown;
+	}
 
 	const resolveWorldBounds = s => {
 		const center = s.pos.add(vec2(0.5, 0.5));
@@ -291,3 +327,4 @@ export function updateStations() {
 		}
 	}
 }
+

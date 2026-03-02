@@ -30,16 +30,16 @@ function findFarthestPoint(listA, listB) {
 }
 
 export function isSnakeCollidingWithBlackHole() {
-	if (!state.blackHole || !state.snake) {
+	if (!state.blackHoles || !state.blackHoles.length || !state.snake) {
 		return false;
 	}
-	const bhPos = state.blackHole.pos;
 	const threshold = blackHoleRadius + 1;
 	let isColliding = false;
-	// return state.snake.some(s => s.distance(bhPos) < threshold);
-	positionLogic(state.snake, state.snakeDirs, ({pos, size, color, tile: t, isMiddle}) => {
-		if (pos.distance(bhPos) < threshold) {
-			isColliding = true;
+	positionLogic(state.snake, state.snakeDirs, ({pos}) => {
+		for (const bh of state.blackHoles) {
+			if (pos.distance(bh.pos) < threshold) {
+				isColliding = true;
+			}
 		}
 	});
 	return isColliding;
@@ -77,7 +77,7 @@ export function startNewSnake() {
 
 	state.dir = vec2(1, 0);
 	state.snakeDirs = [];
-	for (let i = 0; i < 90; i++) {
+	for (let i = 0; i < state.wallLength; i++) {
 		state.snake.push(start.subtract(vec2(i * 2, 0).scale(0.1)));
 		state.snakeDirs.push(state.dir.copy());
 	}

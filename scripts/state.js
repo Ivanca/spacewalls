@@ -1,16 +1,16 @@
 import {vec2} from '../littlejs.esm.js';
 import {
-	timeDelta, keyWasPressed, getPaused, setPaused, mouseIsDown,
+	timeDelta, keyWasPressed, getPaused, setPaused, mouseIsDown, mouseWasPressed, mousePos,
 } from '../littlejs.esm.js';
 import {
-	maxInvaders, extraWallScore, moveDelay, introGoodLuckDuration,
+	extraWallScore, moveDelay, introGoodLuckDuration, worldSize, startingLevel,
 } from './constants.js';
 import {
 	startNewSnake, solidifyWall, updateSnakeMovement, moveSnake, isSnakeCollidingWithBlackHole,
 } from './snake.js';
-import {createStations, updateStations} from './stations.js';
+import {createStations, updateStations, fixMedicStationPosition} from './stations.js';
 import {spawnInvader, updateInvaders} from './invaders.js';
-import {shootBullet, updateBullets} from './bullets.js';
+import {shootBullet, updateBullets, tryShootHealingBullet} from './bullets.js';
 import {initializeStars} from './stars.js';
 
 export const state = {
@@ -37,8 +37,10 @@ export const state = {
 	tempTitleTimer: 0,
 	tempTitle: '',
 	level: 1,
-	blackHole: null,
+	blackHoles: [],
 	hasBuiltWall: false,
+	maxInvaders: 1000,
+	wallLength: 90,
 };
 
 export function resetGame(resetLevel = true) {
@@ -63,37 +65,95 @@ export function resetGame(resetLevel = true) {
 	state.gameWon = false;
 	state.introActive = true;
 	state.tempTitleTimer = 0;
-	state.blackHole = null;
+	state.blackHoles = [];
 	state.hasBuiltWall = false;
+	state.maxInvaders = 1000;
+	state.wallLength = 90;
 	if (resetLevel) {
-		state.level = 1;
+		state.level = startingLevel;
 	}
 	initializeStars();
 	startNewSnake();
 	createStations();
+	if (state.level > 1) {
+		const sumPos = state.stations.reduce((acc, s) => acc.add(s.pos), vec2(0, 0));
+		const center = sumPos.scale(1 / state.stations.length);
+		if (state.level === 2) {
+			state.blackHoles = [{pos: center}];
+			state.tempTitle = 'LEVEL 2 - THE BLACK HOLE AWAKENS';
+			state.tempTitleTimer = 3;
+		} else if (state.level >= 3) {
+			state.wallLength = 110;
+			const {bhPos1, bhPos2} = findBlackHolePositions(center);
+			state.blackHoles = [{pos: bhPos1}, {pos: bhPos2}];
+			state.tempTitle = 'LEVEL 3 - BINARY COLLAPSE';
+			state.tempTitleTimer = 3;
+			// we need to know the black hole positions before fixing the medic station position, so we do it here
+			fixMedicStationPosition();
+		}
+	}
 	setPaused(true);
 }
 
-export function startLevel2() {
-	state.level = 2;
-	resetGame(false);
-	const sumPos = state.stations.reduce((acc, s) => acc.add(s.pos), vec2(0, 0));
-	const center = sumPos.scale(1 / state.stations.length);
-	state.blackHole = {pos: center};
-	state.tempTitle = 'LEVEL 2 - THE BLACK HOLE AWAKENS';
-	state.tempTitleTimer = 3;
+function findBlackHolePositions(center) {
+	const bhDist = 10;
+	const minClearance = 5;
+	const inBounds = p => p.x > 2 && p.x < worldSize.x - 2 && p.y > 2 && p.y < worldSize.y - 2;
+	const baseAngle = Math.random() * Math.PI * 2;
+	const steps = 3600;
+	let bestP1 = null;
+	let bestP2 = null;
+	let bestMinDist = -Infinity;
+
+	for (let i = 0; i < steps; i++) {
+		const a = baseAngle + (i * Math.PI * 2) / steps;
+		const p1 = center.add(vec2(Math.cos(a) * bhDist, Math.sin(a) * bhDist));
+		const p2 = center.add(vec2(-Math.cos(a) * bhDist, -Math.sin(a) * bhDist));
+		if (!inBounds(p1) || !inBounds(p2)) continue;
+		const minDist = state.stations.reduce(
+			(m, s) => Math.min(m, p1.distance(s.pos), p2.distance(s.pos)),
+			Infinity,
+		);
+		if (minDist >= minClearance) {
+			return {bhPos1: p1, bhPos2: p2};
+		}
+		if (minDist > bestMinDist) {
+			bestMinDist = minDist;
+			bestP1 = p1;
+			bestP2 = p2;
+		}
+	}
+
+	// No angle met the clearance threshold; use the best angle found
+	if (bestP1) {
+		console.log('No ideal black hole positions found; using best effort with min clearance of', bestMinDist);
+		return {bhPos1: bestP1, bhPos2: bestP2};
+	}
+
+	// Absolute fallback: reduce distance until in-bounds position is found
+	for (let dist = bhDist; dist >= 4; dist -= 0.5) {
+		const p1 = center.add(vec2(dist, 0));
+		const p2 = center.add(vec2(-dist, 0));
+		if (inBounds(p1) && inBounds(p2)) {
+			return {bhPos1: p1, bhPos2: p2};
+		}
+	}
+	return {
+		bhPos1: center.add(vec2(4, 0)),
+		bhPos2: center.add(vec2(-4, 0)),
+	};
 }
 
 function updateInvasionPhase() {
-	if (state.totalSpawned < maxInvaders) {
+	if (state.totalSpawned < state.maxInvaders) {
 		state.spawnTimer -= timeDelta;
 		if (state.spawnTimer <= 0) {
-			state.spawnTimer = 0.15;
+			state.spawnTimer = 0.1;
 			spawnInvader();
 		}
 	}
 
-	if (state.totalSpawned >= maxInvaders && state.invaders.length === 0 && state.stations.some(s => s.hp > 0)) {
+	if (state.totalSpawned >= state.maxInvaders && state.invaders.length === 0 && state.stations.some(s => s.hp > 0)) {
 		state.gameWon = true;
 		setPaused(true);
 		return;
@@ -102,13 +162,17 @@ function updateInvasionPhase() {
 	updateInvaders();
 	updateBullets();
 
+	if (mouseWasPressed(0)) {
+		tryShootHealingBullet(mousePos);
+	}
+
 	if (mouseIsDown(0)) {
 		shootBullet();
 	}
 
-	if (state.killScore >= extraWallScore && state.totalSpawned < maxInvaders) {
+	if (state.killScore >= extraWallScore && state.totalSpawned < state.maxInvaders) {
 		state.buildingPhase = true;
-		state.tempTitleTimer = 3;
+		state.tempTitleTimer = 5;
 		state.tempTitle = 'YOU EARNED ANOTHER WALL!\nPLACE IT WISELY';
 		state.maxWalls++;
 		setTimeout(() => {
@@ -120,7 +184,6 @@ function updateInvasionPhase() {
 export function gameUpdatePost() {
 	if (state.introActive) {
 		if (keyWasPressed('Space')) {
-			// startLevel2(); // debugging
 			state.introActive = false;
 			state.tempTitleTimer = introGoodLuckDuration;
 			state.tempTitle = 'GOOD LUCK!';
@@ -131,16 +194,19 @@ export function gameUpdatePost() {
 	}
 
 	if (state.gameOver && keyWasPressed('Space')) {
-		if (state.level === 2) {
-			startLevel2();
-		} else {
-			resetGame();
-		}
+		resetGame(false);
 		return;
 	}
 
 	if (state.gameWon && state.level === 1 && keyWasPressed('Space')) {
-		startLevel2();
+		state.level = 2;
+		resetGame(false);
+		return;
+	}
+
+	if (state.gameWon && state.level === 2 && keyWasPressed('Space')) {
+		state.level = 3;
+		resetGame(false);
 		return;
 	}
 

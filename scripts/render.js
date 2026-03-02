@@ -10,7 +10,7 @@ import {
 } from '../littlejs.esm.js';
 import {state} from './state.js';
 import {
-	worldSize, stationSize, extraWallScore, gameTextFont, introLines, secondLevelIntroLines, outroLines, maxInvaders, promotedThreshold,
+	worldSize, stationSize, extraWallScore, gameTextFont, introLines, secondLevelIntroLines, thirdLevelIntroLines, outroLines, promotedThreshold,
 } from './constants.js';
 import {imgs} from './assets.js';
 import {positionLogic, isSnakeCollidingWithBlackHole} from './snake.js';
@@ -113,13 +113,15 @@ function ensureOutroOverlay() {
 // -------------------------------------------------------------------------
 
 function drawBlackHole() {
-	if (!state.blackHole) {
+	if (!state.blackHoles || state.blackHoles.length === 0) {
 		return;
 	}
 
 	const pulse = 1 + (0.08 * Math.sin(time * 3));
 	const bhSize = vec2(5 * pulse, 5 * pulse);
-	drawTile(state.blackHole.pos, bhSize, tile(0, vec2(438, 438), imgs.blackHole));
+	for (const bh of state.blackHoles) {
+		drawTile(bh.pos, bhSize, tile(0, vec2(438, 438), imgs.blackHole));
+	}
 }
 
 
@@ -136,11 +138,23 @@ export function gameRender() {
 	drawBlackHole();
 
 	for (const s of state.stations) {
-		const imgIndex = s.hp > 0 ? imgs.spaceStation : imgs.deadSpaceStation;
+		const imgIndex = s.hp > 0 ? (s.isMedic ? imgs.healingStation : imgs.spaceStation) : imgs.deadSpaceStation;
 		const hitElapsed = time - (s.lastHitTime ?? -Infinity);
 		const blinkRed = s.hp > 0 && hitElapsed < 0.5 && Math.floor(hitElapsed / 0.1) % 2 === 0;
 		const stationColor = blinkRed ? rgb(1, 0.1, 0.1) : WHITE;
 		drawTile(s.pos, stationSize, tile(0, vec2(94, 60), imgIndex), stationColor);
+		if (s.isMedic && s.hp > 0) {
+			let pulse = 1 + (0.07 * Math.sin(time * 4));
+			let col = rgb(0.1, 0.9, 0.4);
+			// show it static and half size while in cooldown
+			if (s.isInCooldown) {
+				col.a = 0.5;
+				pulse = 0.5;
+			}
+			drawRect(s.pos, vec2(0.22 * pulse, 1 * pulse), col);
+			drawRect(s.pos, vec2(1 * pulse, 0.22 * pulse), col);
+			// drawRect(s.pos, vec2(1.6 * pulse, 1.6 * pulse), rgb(0.1, 0.9, 0.4, 0.18));
+		}
 		// DrawRect(s.pos, stationSize, rgb(0.2, 0.8, 1));
 		if (s.hp > 0 && s.level >= 1) {
 			const starSize = vec2(0.85, 0.85);
@@ -200,7 +214,9 @@ export function gameRender() {
 	for (const l of state.bullets) {
 		const angle = Math.atan2(-l.vel.y, l.vel.x);
 		// DrawRect(l.pos, vec2(0.3, 0.3), rgb(1, 1, 0.3));
-		drawTile(l.pos, vec2(0.3, 0.3), tile(0, vec2(24, 24), imgs.bullet), WHITE, angle);
+		const bulletColor = l.healing ? rgb(0.15, 1, 0.45) : WHITE;
+		const bulletSize = l.healing ? vec2(0.5, 0.5) : vec2(0.3, 0.3);
+		drawTile(l.pos, bulletSize, tile(0, vec2(24, 24), imgs.bullet), bulletColor, angle);
 	}
 
 	for (const s of state.stations) {
@@ -257,7 +273,7 @@ export function gameRenderPost() {
 		const centerX = mainCanvasSize.x / 2;
 		const centerY = mainCanvasSize.y / 2;
 		const lineHeight = 34;
-		const intro = state.level === 1 ? introLines : secondLevelIntroLines;
+		const intro = state.level === 1 ? introLines : state.level === 2 ? secondLevelIntroLines : thirdLevelIntroLines;
 
 		drawTextScreen(
 			intro,
@@ -283,7 +299,7 @@ export function gameRenderPost() {
 	}
 
 	if (!state.gameWon && (state.wallCount >= state.maxWalls || state.buildingPhase)) {
-		const enemiesLeft = (maxInvaders - state.totalSpawned) + state.invaders.length;
+		const enemiesLeft = (state.maxInvaders - state.totalSpawned) + state.invaders.length;
 		drawTextScreen(enemiesLeft + ' INVADERS REMAINING', vec2(mainCanvasSize.x / 2, 60), 20, WHITE, 0, BLACK, 'center', gameTextFont);
 
 		// Glowing cyan power bar
@@ -347,6 +363,11 @@ export function gameRenderPost() {
 	}
 
 	if (state.gameWon && state.level === 2) {
+		drawTextScreen('LEVEL 2 CLEAR!', mainCanvasSize.scale(0.5), 80, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawTextScreen('PRESS SPACE FOR LEVEL 3', vec2(mainCanvasSize.x / 2, (mainCanvasSize.y / 2) + 60), 24, WHITE, 0, BLACK, 'center', gameTextFont);
+	}
+
+	if (state.gameWon && state.level === 3) {
 		drawRect(mainCanvasSize.scale(0.5), mainCanvasSize, rgb(0, 0, 0, 0.82));
 		const centerX = mainCanvasSize.x / 2;
 
