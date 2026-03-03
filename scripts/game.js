@@ -1,9 +1,10 @@
 import {setCameraPos, setCameraScale, engineInit, setInputPreventDefault, isTouchDevice, setPaused, getPaused} from '../littlejs.esm.js';
 import {worldSize} from './constants.js';
 import {imagesSrcArray} from './assets.js';
-import {resetGame, gameUpdate, gameUpdatePost} from './state.js';
-import {setupGestureControls} from './input.js';
+import {resetGame, gameUpdate, gameUpdatePost, state} from './state.js';
+import {setupGestureControls, resetTap} from './input.js';
 import {gameRender, gameRenderPost} from './render.js';
+import {initPauseMenu} from './pause-menu.js';
 
 const TILE_SIZE = () => window.innerHeight / (isTouchDevice ? 35 : 41); // pixels per world unit (camera scale)
 
@@ -43,6 +44,7 @@ function gameInit() {
 	setCameraPos(worldSize.scale(0.5));
 	setCameraScale(TILE_SIZE());
 
+	initPauseMenu();
 	resetGame();
 }
 
@@ -106,3 +108,5 @@ async function goFullscreenAndRotate() {
 
 const fullscreenRotateBtn = document.getElementById('fullscreen-rotate-btn');
 fullscreenRotateBtn.addEventListener('click', goFullscreenAndRotate);
+
+

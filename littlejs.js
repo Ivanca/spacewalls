@@ -702,7 +702,7 @@ function drawEngineLogo(t)
  *  @type {boolean}
  *  @default
  *  @memberof Debug */
-const debug = true;
+const debug = false;
 
 /** Size to render debug points by default
  *  @type {number}

@@ -13,6 +13,7 @@ import {spawnInvader, updateInvaders} from './invaders.js';
 import {shootBullet, updateBullets, tryShootHealingBullet} from './bullets.js';
 import {initializeStars} from './stars.js';
 import { getTap, resetTap } from './input.js';
+import {openPauseMenu} from './pause-menu.js';
 
 export const state = {
 	snake: null,
@@ -214,12 +215,12 @@ export function gameUpdatePost() {
 	}
 
 	if (!state.gameOver && !state.gameWon && keyWasPressed('Escape')) {
-		setPaused(!getPaused());
+		openPauseMenu();
 	}
 
-	if (getPaused() && (keyWasPressed('Space') || tap) && !state.gameOver && !state.gameWon) {
-		setPaused(false);
-	}
+	// if (getPaused() && (keyWasPressed('Space') || tap) && !state.gameOver && !state.gameWon) {
+	// 	setPaused(false);
+	// }
 
 	if (state.tempTitleTimer > 0) {
 		state.tempTitleTimer = Math.max(0, state.tempTitleTimer - timeDelta);

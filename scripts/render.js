@@ -15,6 +15,7 @@ import {
 import {imgs} from './assets.js';
 import {positionLogic, isSnakeCollidingWithBlackHole} from './snake.js';
 import {getStarsPositions} from './stars.js';
+import {showPauseButton} from './pause-menu.js';
 
 // ---------- Outro overlay (DOM elements shown on level 2 victory) ----------
 const outroOverlayEl = document.getElementById('outro-overlay');
@@ -46,7 +47,7 @@ const buildHintText = isTouchDevice
 
 const shootHintText = isTouchDevice
 	? 'Keep your finger down where you want to shoot!'
-	: 'Keep the mouse button pressed where you want to shoot!';
+	: 'Move the cursor to aim then keep the mouse button down!';
 // -------------------------------------------------------------------------
 
 function drawBlackHole() {
@@ -230,14 +231,18 @@ export function gameRenderPost() {
 			window.innerWidth * 0.75,
 			1.5,
 		);
-		if (outroOverlayEl) outroOverlayEl.style.display = 'none';
+		if (outroOverlayEl && !outroOverlayEl.classList.contains('credits-mode')) outroOverlayEl.style.display = 'none';
 		return;
+	}
+
+	if (!getPaused()) {
+		showPauseButton();
 	}
 
 	// DrawTextScreen('Walls: ' + state.wallCount + '/' + state.maxWalls, vec2(200, 40), 30, WHITE, 0, BLACK, 'center', gameTextFont);
 
 	if (state.tempTitleTimer > 0) {
-		drawTextScreen(state.tempTitle, vec2(mainCanvasSize.x / 2, 180), 52, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawTextScreen(state.tempTitle, vec2(mainCanvasSize.x / 2, 180), defaultFontSize * 4, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 
 	if (!state.gameWon && (state.wallCount >= state.maxWalls || state.buildingPhase)) {
@@ -343,7 +348,8 @@ export function gameRenderPost() {
 	}
 
 	// Hide outro overlay when not on the victory screen
-	if (outroOverlayEl) {
+	// (skip if credits-mode is active from the pause menu)
+	if (outroOverlayEl && !outroOverlayEl.classList.contains('credits-mode')) {
 		outroOverlayEl.style.display = 'none';
 		if (shareDropdown) shareDropdown.style.display = 'none';
 	}

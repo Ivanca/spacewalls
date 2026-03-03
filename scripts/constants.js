@@ -49,3 +49,5 @@ If there is enough interest I might add more levels and content,
 or create a mobile version, so if you want to support this effort,
 consider sharing the game or following me on YouTube
 `;
+
+export const credits = outroLines.split(`\n`).filter(e => !e.includes('congrats')).join('\n');

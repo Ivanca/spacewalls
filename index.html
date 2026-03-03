@@ -70,8 +70,12 @@ body {
 	left: 50%;
 	transform: translateX(-50%);
 	display: flex;
-	gap: 16px;
+	gap: 2cqi;
 	pointer-events: all;
+}
+
+.credits-mode #outro-btn-row {
+	top: 58lvh;
 }
 
 .outro-btn {
@@ -126,6 +130,131 @@ body {
 	background: rgba(0, 232, 255, 0.15);
 }
 
+/* ── Pause button (touch devices only, shown via JS) ────────────────────── */
+#pause-btn {
+	display: none;
+	position: fixed;
+	top: 12px;
+	right: 12px;
+	z-index: 500;
+	background: rgba(10, 10, 18, 0.80);
+	color: white;
+	border: 2px solid white;
+	border-radius: 8px;
+	width: 48px;
+	height: 48px;
+	font-size: 20px;
+	line-height: 1;
+	cursor: pointer;
+	align-items: center;
+	justify-content: center;
+	pointer-events: all;
+	touch-action: manipulation;
+}
+#pause-btn span {
+	transform: scaleX(0.7);
+}
+/* ── Pause menu overlay ─────────────────────────────────────────────────── */
+#pause-menu {
+	position: fixed;
+	inset: 0;
+	display: none;
+	align-items: center;
+	justify-content: center;
+	background: rgba(5, 5, 13, 0.88);
+	z-index: 600;
+}
+
+.pause-menu-box {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 16px;
+	padding: 36px 28px;
+	background: #0a0a12;
+	border: 2px solid #00e8ff;
+	border-radius: 10px;
+	box-shadow: 0 0 30px #00e8ff44;
+	min-width: 260px;
+	max-width: 90vw;
+}
+
+.pause-menu-title {
+	font-family: PressStart2P, monospace;
+	color: #00e8ff;
+	font-size: 15px;
+	text-shadow: 0 0 10px #00e8ff;
+	text-align: center;
+	margin-bottom: 8px;
+}
+
+.pause-menu-btn {
+	background: #0a0a12;
+	color: #e0f8ff;
+	border: 2px solid #00e8ff;
+	border-radius: 6px;
+	padding: 13px 20px;
+	font-family: PressStart2P, monospace;
+	font-size: 10px;
+	cursor: pointer;
+	text-shadow: 0 0 8px #00e8ff;
+	box-shadow: 0 0 14px #00e8ff55;
+	touch-action: manipulation;
+	text-align: center;
+}
+
+.pause-menu-btn--red {
+	border-color: #ff4040;
+	color: #ffe5e5;
+	text-shadow: 0 0 8px #ff4040;
+	box-shadow: 0 0 14px #ff404055;
+}
+
+/* ── Credits panel (inside outro-overlay, for About view) ───────────────── */
+#credits-panel {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	display: none;
+	flex-direction: column;
+	align-items: center;
+	gap: 24px;
+	padding: 0 24px;
+	width: 80%;
+	max-width: 680px;
+}
+
+#outro-overlay.credits-mode {
+	background: rgba(5, 5, 13, 0.88);
+	pointer-events: all;
+	z-index: 600;
+}
+
+#credits-text {
+	font-family: PressStart2P, monospace;
+	color: #e0f8ff;
+	font-size: clamp(8px, 1.4cqi, 13px);
+	line-height: 2.2em;
+	text-align: center;
+	text-shadow: 0 0 6px #00e8ff88;
+}
+
+#about-close-btn {
+	background: #0a0a12;
+	color: #e0f8ff;
+	border: 2px solid #00e8ff;
+	border-radius: 6px;
+	padding: 11px 28px;
+	font-family: PressStart2P, monospace;
+	font-size: 10px;
+	cursor: pointer;
+	text-shadow: 0 0 8px #00e8ff;
+	box-shadow: 0 0 14px #00e8ff55;
+	touch-action: manipulation;
+	margin-top: 3cqi;
+}
+
 </style>
 </head>
 <body>
@@ -138,7 +267,26 @@ body {
 		<a id="fullscreen-rotate-btn">Before We Start<br>Tap Here To Go Fullscreen & Rotate</a>
 	</div>
 
+	<!-- Pause button (shown on touch devices via JS) -->
+	<button id="pause-btn" aria-label="Pause"><span>&#9646;&#9646;</span></button>
+
+	<!-- Pause menu -->
+	<div id="pause-menu">
+		<div class="pause-menu-box">
+			<div class="pause-menu-title">PAUSED</div>
+			<button id="pause-resume-btn" class="pause-menu-btn">Resume</button>
+			<button id="pause-restart-btn" class="pause-menu-btn">Restart Level</button>
+			<button id="pause-about-btn" class="pause-menu-btn">About the Author</button>
+			<button id="pause-exit-btn" class="pause-menu-btn pause-menu-btn--red">Exit</button>
+		</div>
+	</div>
+
 	<div id="outro-overlay">
+		<!-- Credits panel (shown from pause menu About option) -->
+		<div id="credits-panel">
+			<div id="credits-text"></div>
+			<button id="about-close-btn">Close</button>
+		</div>
 		<div id="outro-btn-row">
 			<div class="share-wrapper">
 				<button id="share-btn" class="outro-btn" type="button">Share Game</button>
