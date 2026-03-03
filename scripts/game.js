@@ -5,11 +5,11 @@ import {resetGame, gameUpdate, gameUpdatePost} from './state.js';
 import {setupGestureControls} from './input.js';
 import {gameRender, gameRenderPost} from './render.js';
 
-const TILE_SIZE = window.innerHeight / (isTouchDevice ? 35 : 41); // pixels per world unit (camera scale)
+const TILE_SIZE = () => window.innerHeight / (isTouchDevice ? 35 : 41); // pixels per world unit (camera scale)
 
 function computeWorldSize() {
-	worldSize.x = Math.ceil(window.innerWidth  / TILE_SIZE);
-	worldSize.y = Math.ceil(window.innerHeight / TILE_SIZE);
+	worldSize.x = Math.ceil(window.innerWidth  / TILE_SIZE());
+	worldSize.y = Math.ceil(window.innerHeight / TILE_SIZE());
 }
 
 function isPortrait() {
@@ -39,7 +39,7 @@ function gameInit() {
 	setInputPreventDefault(false);
 	setupGestureControls();
 	setCameraPos(worldSize.scale(0.5));
-	setCameraScale(TILE_SIZE);
+	setCameraScale(TILE_SIZE());
 
 	resetGame();
 }
@@ -49,9 +49,7 @@ function onOrientationChange() {
 	if (isPortrait()) {
 		if (rotateOverlay) rotateOverlay.style.display = 'flex';
 	} else {
-		setTimeout(() => {
-			startEngine();
-		}, 5000);
+		startEngine();
 		if (rotateOverlay) rotateOverlay.style.display = 'none';
 	}
 }
