@@ -1,4 +1,4 @@
-import {setCameraPos, setCameraScale, engineInit, setInputPreventDefault, isTouchDevice, setPaused} from '../littlejs.esm.js';
+import {setCameraPos, setCameraScale, engineInit, setInputPreventDefault, isTouchDevice, setPaused, getPaused} from '../littlejs.esm.js';
 import {worldSize} from './constants.js';
 import {imagesSrcArray} from './assets.js';
 import {resetGame, gameUpdate, gameUpdatePost} from './state.js';
@@ -52,7 +52,7 @@ let pausedDueToOrientation = false;
 function onOrientationChange() {
 	if (isPortrait()) {
 		if (rotateOverlay) {
-			if (engineStarted) {
+			if (engineStarted && getPaused() === false) {
 				setPaused(true);
 				pausedDueToOrientation = true;
 			}
