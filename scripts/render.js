@@ -1,6 +1,6 @@
 import {
 	vec2, rgb, WHITE, BLACK, ASSERT, isString, isVector2, isNumber, isColor, fontDefault,
-	clamp,
+	clamp, isTouchDevice,
 	cameraPos,
 	drawRect, drawTile,
 	tile,
@@ -38,6 +38,15 @@ if (ytBtn) {
 		window.open('https://www.youtube.com/channel/UCtmf9FLAjo0W1SxfhCZzp1w?sub_confirmation=1', '_blank');
 	});
 }
+
+
+const buildHintText = isTouchDevice
+	? 'Swipe to move, tap to build the wall'
+	: 'Use arrows to move, press space to build the wall';
+
+const shootHintText = isTouchDevice
+	? 'Keep your finger down where you want to shoot!'
+	: 'Keep the mouse button pressed where you want to shoot!';
 // -------------------------------------------------------------------------
 
 function drawBlackHole() {
@@ -197,6 +206,7 @@ function drawTextScreen(text, pos, size, color=WHITE, lineWidth=0, lineColor=BLA
 
 export function gameRenderPost() {
 	const defaultFontSize = Math.floor(innerWidth / 106);
+	const actionText = isTouchDevice ? 'TAP' : 'PRESS SPACE';
 	if (state.introActive) {
 		drawRect(mainCanvasSize.scale(0.5), mainCanvasSize, rgb(0, 0, 0, 0.78));
 		const centerX = mainCanvasSize.x / 2;
@@ -229,15 +239,15 @@ export function gameRenderPost() {
 
 	if (!state.gameWon && (state.wallCount >= state.maxWalls || state.buildingPhase)) {
 		const enemiesLeft = (state.maxInvaders - state.totalSpawned) + state.invaders.length;
-		drawTextScreen(enemiesLeft + ' INVADERS REMAINING', vec2(mainCanvasSize.x / 2, 60), 20, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawTextScreen(enemiesLeft + ' INVADERS REMAINING', vec2(mainCanvasSize.x / 2, 60), defaultFontSize, WHITE, 0, BLACK, 'center', gameTextFont);
 
 		// Glowing cyan power bar
 		{
 			const ctx = mainContext;
-			const barW = 320;
-			const barH = 18;
+			const barW = defaultFontSize * 18;
+			const barH = defaultFontSize;
 			const barX = (mainCanvasSize.x / 2) - (barW / 2);
-			const barY = 88;
+			const barY = defaultFontSize * 5;
 			const fill = clamp(state.killScore / extraWallScore, 0, 1);
 
 			ctx.save();
@@ -268,7 +278,7 @@ export function gameRenderPost() {
 			ctx.strokeRect(barX, barY, barW, barH);
 
 			// Label
-			ctx.font = 'bold 13px monospace';
+			ctx.font = 'bold ' + Math.max(Math.floor(defaultFontSize * 0.72), 9) + 'px monospace';
 			ctx.textAlign = 'center';
 			ctx.fillStyle = 'rgba(140, 235, 255, 0.9)';
 			ctx.fillText('ENEMIES SHOT CONSTRUCTION BONUS', mainCanvasSize.x / 2, barY - 4);
@@ -278,22 +288,25 @@ export function gameRenderPost() {
 	}
 
 	if (state.snake && !state.hasBuiltWall) {
-		drawTextScreen('Use arrows to move, press space to build the wall', vec2(mainCanvasSize.x / 2, mainCanvasSize.y - 40), defaultFontSize, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawTextScreen(buildHintText, vec2(mainCanvasSize.x / 2, mainCanvasSize.y - 40), defaultFontSize, WHITE, 0, BLACK, 'center', gameTextFont);
+	}
+	if (!state.snake && !getPaused() && !state.hasShot && state.invaders.length > 0) {
+		drawTextScreen(shootHintText, vec2(mainCanvasSize.x / 2, mainCanvasSize.y - 40), defaultFontSize, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 
 	if (state.gameOver) {
 		drawTextScreen('GAME OVER', mainCanvasSize.scale(0.5), defaultFontSize * 4.5, WHITE, 0, BLACK, 'center', gameTextFont);
-		drawTextScreen('PRESS SPACE TO RESTART', vec2(mainCanvasSize.x / 2, (mainCanvasSize.y / 2) + 60), defaultFontSize * 1.35, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawTextScreen(actionText + ' TO RESTART', vec2(mainCanvasSize.x / 2, (mainCanvasSize.y / 2) + 60), defaultFontSize * 1.35, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 
 	if (state.gameWon && state.level === 1) {
 		drawTextScreen('LEVEL 1 CLEAR!', mainCanvasSize.scale(0.5), defaultFontSize * 4.5, WHITE, 0, BLACK, 'center', gameTextFont);
-		drawTextScreen('PRESS SPACE FOR LEVEL 2', vec2(mainCanvasSize.x / 2, (mainCanvasSize.y / 2) + 60), 24, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawTextScreen(actionText + ' FOR LEVEL 2', vec2(mainCanvasSize.x / 2, (mainCanvasSize.y / 2) + 60), 24, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 
 	if (state.gameWon && state.level === 2) {
 		drawTextScreen('LEVEL 2 CLEAR!', mainCanvasSize.scale(0.5), defaultFontSize * 4.5, WHITE, 0, BLACK, 'center', gameTextFont);
-		drawTextScreen('PRESS SPACE FOR LEVEL 3', vec2(mainCanvasSize.x / 2, (mainCanvasSize.y / 2) + 60), 24, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawTextScreen(actionText + ' FOR LEVEL 3', vec2(mainCanvasSize.x / 2, (mainCanvasSize.y / 2) + 60), 24, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 
 	if (state.gameWon && state.level === 3) {

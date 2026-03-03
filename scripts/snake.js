@@ -5,6 +5,7 @@ import {state} from './state.js';
 import {worldSize, blackHoleRadius} from './constants.js';
 import {sWall} from './sounds.js';
 import {imgs} from './assets.js';
+import {getLastSwipeDirection, getTap} from './input.js';
 
 function findFarthestPoint(listA, listB) {
 	let farthestPoint = null;
@@ -83,8 +84,24 @@ export function startNewSnake() {
 	}
 }
 
+
 export function updateSnakeMovement() {
-	const input = keyDirection();
+	let input = keyDirection();
+	    // Snake input (prevent reversing)
+    let swipeDir = getLastSwipeDirection();
+	if (swipeDir) {
+		console.log('Swipe detected:', swipeDir);
+	}
+	if (swipeDir === 'up') {
+		input = vec2(0, 1);
+	} else if (swipeDir === 'down') {
+		input = vec2(0, -1);
+	} else if (swipeDir === 'left') {
+		input = vec2(-1, 0);
+	} else if (swipeDir === 'right') {
+		input = vec2(1, 0);
+	}
+
 	if (input.x && !state.dir.x) {
 		state.justChangedDirFrom = state.dir.copy();
 		state.dir = vec2(sign(input.x), 0);

@@ -13,7 +13,6 @@ export function shootBullet() {
 	if (!alive.length) {
 		return;
 	}
-
 	// Find stations with a clear shot to the mouse
 	const clearShot = alive.filter(s => hasClearShot(s.pos, mousePos));
 
@@ -45,7 +44,7 @@ export function shootBullet() {
 		const vel = vec2(Math.cos(angle), Math.sin(angle)).normalize(bulletDef.speed);
 		state.bullets.push({pos: best.pos, vel, sourceStation: i === 0 ? best : null});
 	}
-
+	state.hasShot = true;
 	sBullet.play(best.pos);
 	best.lastBulletTime = time;
 }

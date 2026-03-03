@@ -1,5 +1,5 @@
 import {
-	vec2, rand, isOverlapping, isIntersecting, timeDelta, time,
+	vec2, rand, isOverlapping, isIntersecting, timeDelta, time, isTouchDevice,
 } from '../littlejs.esm.js';
 import {state} from './state.js';
 import {worldSize, stationSize, blackHoleRadius} from './constants.js';
@@ -7,8 +7,8 @@ import {sHit} from './sounds.js';
 
 function placeStation(extra = {}) {
 	const center = worldSize.scale(0.5);
-	const minDistance = 7;
-	const maxDistance = 11;
+	const minDistance = isTouchDevice ? 5 : 7;
+	const maxDistance = isTouchDevice ? 9 : 11;
 	const minDistanceBetweenStations = 5;
 	const maxAttempts = 1000;
 

@@ -1,10 +1,11 @@
-import {setCameraPos, setCameraScale, engineInit} from '../littlejs.esm.js';
+import {setCameraPos, setCameraScale, engineInit, setInputPreventDefault, isTouchDevice} from '../littlejs.esm.js';
 import {worldSize} from './constants.js';
 import {imagesSrcArray} from './assets.js';
 import {resetGame, gameUpdate, gameUpdatePost} from './state.js';
+import {setupGestureControls} from './input.js';
 import {gameRender, gameRenderPost} from './render.js';
 
-const TILE_SIZE = window.innerHeight / 41; // pixels per world unit (camera scale)
+const TILE_SIZE = window.innerHeight / (isTouchDevice ? 35 : 41); // pixels per world unit (camera scale)
 
 function computeWorldSize() {
 	worldSize.x = Math.ceil(window.innerWidth  / TILE_SIZE);
@@ -35,6 +36,8 @@ function startEngine() {
 }
 
 function gameInit() {
+	setInputPreventDefault(false);
+	setupGestureControls();
 	setCameraPos(worldSize.scale(0.5));
 	setCameraScale(TILE_SIZE);
 

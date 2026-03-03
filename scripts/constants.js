@@ -1,4 +1,4 @@
-import {vec2} from '../littlejs.esm.js';
+import {vec2, isTouchDevice} from '../littlejs.esm.js';
 
 // Mutable – x/y are filled in by game.js before engineInit based on screen size
 export const worldSize = vec2(50, 38);
@@ -11,6 +11,7 @@ export const introGoodLuckDuration = 2.2;
 export const blackHoleRadius = 1.5;
 // Change to 2 or 3 to skip straight to that level (useful for testing)
 export const startingLevel = 1;
+const actionText = isTouchDevice ? 'TAP' : 'PRESS SPACE'; 
 export const introLines = `
 Greetings General, first we enter the building stage
 to deploy 3 walls to protect our space stations
@@ -18,7 +19,7 @@ from invaders that will come from all
 directions, remember that our stations
 cant move but they can shoot.
 
-PRESS SPACE TO START
+${actionText} TO START
 `;
 export const secondLevelIntroLines = `
 Well done General, but another fleet of stations
@@ -27,7 +28,7 @@ awakened in the middle of them and our intel says
 that invaders will pour from it, besides coming
 from random directions as usual, prepare accordingly.
 
-PRESS SPACE TO START LEVEL 2
+${actionText} TO START LEVEL 2
 `;
 export const thirdLevelIntroLines = `
 Impressive work General, but our last and hardest
@@ -39,7 +40,7 @@ of them as bullets that heal, tap any damaged station
 to fire them towards them, not only that but we also
 have received more funding for longer walls
 
-PRESS SPACE TO START LEVEL 3
+${actionText} TO START LEVEL 3
 `;
 export const outroLines = `
 Hey there I'm Ivan, the developer of this game,

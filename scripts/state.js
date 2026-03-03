@@ -1,4 +1,4 @@
-import {vec2} from '../littlejs.esm.js';
+import {vec2, isTouchDevice} from '../littlejs.esm.js';
 import {
 	timeDelta, keyWasPressed, getPaused, setPaused, mouseIsDown, mouseWasPressed, mousePos,
 } from '../littlejs.esm.js';
@@ -12,6 +12,7 @@ import {createStations, updateStations, fixMedicStationPosition} from './station
 import {spawnInvader, updateInvaders} from './invaders.js';
 import {shootBullet, updateBullets, tryShootHealingBullet} from './bullets.js';
 import {initializeStars} from './stars.js';
+import { getTap, resetTap } from './input.js';
 
 export const state = {
 	snake: null,
@@ -39,11 +40,12 @@ export const state = {
 	level: 1,
 	blackHoles: [],
 	hasBuiltWall: false,
+	hasShot: false,
 	maxInvaders: 1000,
 	wallLength: 90,
 };
 
-export function resetGame(resetLevel = true) {
+export function resetGame(resetLevel = true, skipIntro = false) {
 	state.snake = null;
 	state.snakeDirs = [];
 	state.dir = vec2(1, 0);
@@ -63,7 +65,7 @@ export function resetGame(resetLevel = true) {
 	state.justChangedDirFrom = null;
 	state.mustSolidifyNextTick = false;
 	state.gameWon = false;
-	state.introActive = true;
+	state.introActive = !skipIntro;
 	state.tempTitleTimer = 0;
 	state.blackHoles = [];
 	state.hasBuiltWall = false;
@@ -148,7 +150,7 @@ function updateInvasionPhase() {
 	if (state.totalSpawned < state.maxInvaders) {
 		state.spawnTimer -= timeDelta;
 		if (state.spawnTimer <= 0) {
-			state.spawnTimer = 0.1;
+			state.spawnTimer = isTouchDevice ? 0.13 : 0.1;
 			spawnInvader();
 		}
 	}
@@ -162,7 +164,7 @@ function updateInvasionPhase() {
 	updateInvaders();
 	updateBullets();
 
-	if (mouseWasPressed(0)) {
+	if (mouseWasPressed(0) || getTap()) {
 		tryShootHealingBullet(mousePos);
 	}
 
@@ -182,29 +184,30 @@ function updateInvasionPhase() {
 }
 
 export function gameUpdatePost() {
+	const tap = getTap();
+	resetTap();
 	if (state.introActive) {
-		if (keyWasPressed('Space')) {
+		if (keyWasPressed('Space') || tap) {
 			state.introActive = false;
 			state.tempTitleTimer = introGoodLuckDuration;
 			state.tempTitle = 'GOOD LUCK!';
 			setPaused(false);
 		}
-
 		return;
 	}
 
-	if (state.gameOver && keyWasPressed('Space')) {
-		resetGame(false);
+	if (state.gameOver && (keyWasPressed('Space') || tap)) {
+		resetGame(false, true);
 		return;
 	}
 
-	if (state.gameWon && state.level === 1 && keyWasPressed('Space')) {
+	if (state.gameWon && state.level === 1 && (keyWasPressed('Space') || tap)) {
 		state.level = 2;
 		resetGame(false);
 		return;
 	}
 
-	if (state.gameWon && state.level === 2 && keyWasPressed('Space')) {
+	if (state.gameWon && state.level === 2 && (keyWasPressed('Space') || tap)) {
 		state.level = 3;
 		resetGame(false);
 		return;
@@ -214,7 +217,7 @@ export function gameUpdatePost() {
 		setPaused(!getPaused());
 	}
 
-	if (getPaused() && keyWasPressed('Space') && !state.gameOver && !state.gameWon) {
+	if (getPaused() && (keyWasPressed('Space') || tap) && !state.gameOver && !state.gameWon) {
 		setPaused(false);
 	}
 
@@ -229,9 +232,10 @@ export function gameUpdate() {
 	}
 
 	if (state.snake) {
+		const tap = getTap();
 		updateSnakeMovement();
 
-		if ((keyWasPressed('Space') || state.mustSolidifyNextTick) && state.wallCount < state.maxWalls && !isSnakeCollidingWithBlackHole()) {
+		if ((keyWasPressed('Space') || tap || state.mustSolidifyNextTick) && state.wallCount < state.maxWalls && !isSnakeCollidingWithBlackHole()) {
 			solidifyWall();
 			state.hasBuiltWall = true;
 		}
