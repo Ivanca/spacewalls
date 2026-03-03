@@ -49,7 +49,9 @@ function onOrientationChange() {
 	if (isPortrait()) {
 		if (rotateOverlay) rotateOverlay.style.display = 'flex';
 	} else {
-		startEngine();
+		setTimeout(() => {
+			startEngine();
+		}, 500);
 		if (rotateOverlay) rotateOverlay.style.display = 'none';
 	}
 }
