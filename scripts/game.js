@@ -51,7 +51,7 @@ function onOrientationChange() {
 	} else {
 		setTimeout(() => {
 			startEngine();
-		}, 500);
+		}, 5000);
 		if (rotateOverlay) rotateOverlay.style.display = 'none';
 	}
 }
