@@ -46,18 +46,22 @@ function gameInit() {
 	resetGame();
 }
 
+let pausedDueToOrientation = false;
+
 // ── Orientation / resize listener ─────────────────────────────────────────
 function onOrientationChange() {
 	if (isPortrait()) {
 		if (rotateOverlay) {
 			if (engineStarted) {
 				setPaused(true);
+				pausedDueToOrientation = true;
 			}
 			rotateOverlay.style.display = 'flex';
 		}
 	} else {
-		if (engineStarted) {
+		if (engineStarted && pausedDueToOrientation) {
 			setPaused(false);
+			pausedDueToOrientation = false;
 		}
 		startEngine();
 		if (rotateOverlay) {
