@@ -62,3 +62,31 @@ if (isPortrait()) {
 } else {
 	startEngine();
 }
+
+async function goFullscreenAndRotate() {
+  const element = document.documentElement; // Targets the entire page (<html> element)
+
+  // 1. Request fullscreen mode
+  if (!document.fullscreenElement) {
+    try {
+      await element.requestFullscreen();
+      // Use browser-specific prefixes for broader compatibility if needed
+      // (e.g., element.webkitRequestFullscreen() for Safari)
+    } catch (err) {
+      console.error(`Error attempting to enable fullscreen: ${err.message}`);
+    }
+  }
+
+  // 2. Lock the screen orientation
+  try {
+    // Lock to 'landscape' (includes primary and secondary)
+    await screen.orientation.lock("landscape");
+    console.log("Screen orientation locked to landscape.");
+  } catch (err) {
+    console.error(`Error attempting to lock orientation: ${err.message}`);
+	alert("Unable to lock screen orientation. Please rotate your device to landscape mode manually.");
+  }
+}
+
+const fullscreenRotateBtn = document.getElementById('fullscreen-rotate-btn');
+fullscreenRotateBtn.addEventListener('click', goFullscreenAndRotate);
