@@ -1,4 +1,4 @@
-import {setCameraPos, setCameraScale, engineInit, setInputPreventDefault, isTouchDevice} from '../littlejs.esm.js';
+import {setCameraPos, setCameraScale, engineInit, setInputPreventDefault, isTouchDevice, setPaused} from '../littlejs.esm.js';
 import {worldSize} from './constants.js';
 import {imagesSrcArray} from './assets.js';
 import {resetGame, gameUpdate, gameUpdatePost} from './state.js';
@@ -23,7 +23,9 @@ const rotateOverlay = document.getElementById('rotate-overlay');
 let engineStarted = false;
 
 function startEngine() {
-	if (engineStarted) return;
+	if (engineStarted) {
+		return;
+	}
 	engineStarted = true;
 
 	if (rotateOverlay) {
@@ -47,10 +49,20 @@ function gameInit() {
 // ── Orientation / resize listener ─────────────────────────────────────────
 function onOrientationChange() {
 	if (isPortrait()) {
-		if (rotateOverlay) rotateOverlay.style.display = 'flex';
+		if (rotateOverlay) {
+			if (engineStarted) {
+				setPaused(true);
+			}
+			rotateOverlay.style.display = 'flex';
+		}
 	} else {
+		if (engineStarted) {
+			setPaused(false);
+		}
 		startEngine();
-		if (rotateOverlay) rotateOverlay.style.display = 'none';
+		if (rotateOverlay) {
+			rotateOverlay.style.display = 'none';
+		}
 	}
 }
 
