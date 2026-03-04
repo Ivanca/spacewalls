@@ -1,4 +1,4 @@
-import {Sound} from '../littlejs.esm.js';
+import {Sound} from '../littlejs.esm.min.js';
 
 const und = undefined;
 export const sWall = new Sound([0.1, und, 120, und, 0.05, 0.2, 2, 1, und, und, 80, 0.05]);

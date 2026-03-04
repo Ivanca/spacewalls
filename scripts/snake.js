@@ -1,6 +1,6 @@
 import {
 	vec2, WHITE, sign, tile, keyDirection,
-} from '../littlejs.esm.js';
+} from '../littlejs.esm.min.js';
 import {state} from './state.js';
 import {worldSize, blackHoleRadius} from './constants.js';
 import {sWall} from './sounds.js';

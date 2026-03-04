@@ -1,4 +1,4 @@
-import {isOverlapping} from '../littlejs.esm.js';
+import {isOverlapping} from '../littlejs.esm.min.js';
 import {state} from './state.js';
 import {sWallHit} from './sounds.js';
 

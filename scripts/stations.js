@@ -1,6 +1,6 @@
 import {
 	vec2, rand, isOverlapping, isIntersecting, timeDelta, time, isTouchDevice,
-} from '../littlejs.esm.js';
+} from '../littlejs.esm.min.js';
 import {state} from './state.js';
 import {worldSize, stationSize, blackHoleRadius} from './constants.js';
 import {sHit} from './sounds.js';

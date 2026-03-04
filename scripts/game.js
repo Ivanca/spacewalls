@@ -1,4 +1,4 @@
-import {setCameraPos, setCameraScale, engineInit, setInputPreventDefault, isTouchDevice, setPaused, getPaused} from '../littlejs.esm.js';
+import {setCameraPos, setCameraScale, engineInit, setInputPreventDefault, isTouchDevice, setPaused, getPaused} from '../littlejs.esm.min.js';
 import {worldSize} from './constants.js';
 import {imagesSrcArray} from './assets.js';
 import {resetGame, gameUpdate, gameUpdatePost, state} from './state.js';

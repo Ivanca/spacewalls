@@ -1,8 +1,8 @@
-import {vec2, isTouchDevice} from '../littlejs.esm.js';
+import {vec2, isTouchDevice} from '../littlejs.esm.min.js';
 
 // Mutable – x/y are filled in by game.js before engineInit based on screen size
 // Change to 2 or 3 to skip straight to that level (useful for testing)
-export const startingLevel = 3;
+export const startingLevel = 1;
 export const worldSize = vec2(50, 38);
 export const stationSize = vec2(3, 2);
 export const extraWallScore = 130;

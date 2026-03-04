@@ -1,7 +1,7 @@
-import {vec2, isTouchDevice, time} from '../littlejs.esm.js';
+import {vec2, isTouchDevice, time} from '../littlejs.esm.min.js';
 import {
 	timeDelta, keyWasPressed, getPaused, setPaused, mouseIsDown, mouseWasPressed, mousePos,
-} from '../littlejs.esm.js';
+} from '../littlejs.esm.min.js';
 import {
 	extraWallScore, moveDelay, introGoodLuckDuration, worldSize, startingLevel,
 } from './constants.js';

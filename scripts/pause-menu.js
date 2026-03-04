@@ -1,4 +1,4 @@
-import {setPaused} from '../littlejs.esm.js';
+import {setPaused} from '../littlejs.esm.min.js';
 import {credits} from './constants.js';
 import {resetGame} from './state.js';
 import {resetTap} from './input.js';

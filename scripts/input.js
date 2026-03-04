@@ -1,6 +1,6 @@
 
 import TinyGesture from '../TinyGesture.js';
-import { mainCanvas, getPaused } from '../littlejs.esm.js';
+import { mainCanvas, getPaused } from '../littlejs.esm.min.js';
 import {state} from './state.js';
 let swipeUp = false;
 let swipeDown = false;

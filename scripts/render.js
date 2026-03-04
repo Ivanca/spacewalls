@@ -7,7 +7,7 @@ import {
 	mainCanvasSize, mainContext,
 	getPaused, time,
 	worldToScreen,
-} from '../littlejs.esm.js';
+} from '../littlejs.esm.min.js';
 import {state} from './state.js';
 import {
 	worldSize, stationSize, extraWallScore, gameTextFont, introLines, secondLevelIntroLines, thirdLevelIntroLines, outroLines, promotedThreshold,

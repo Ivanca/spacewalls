@@ -1,5 +1,5 @@
 import {worldSize} from './constants.js';
-import {vec2} from '../littlejs.esm.js';
+import {vec2} from '../littlejs.esm.min.js';
 
 let starsPositions = [];
 export function initializeStars() {
