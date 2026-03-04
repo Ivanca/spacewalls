@@ -1,7 +1,69 @@
 
 import TinyGesture from '../TinyGesture.js';
-import { mainCanvas, getPaused } from '../littlejs.esm.min.js';
+import { mainCanvas, getPaused, screenToWorld, vec2 } from '../littlejs.esm.min.js';
 import {state} from './state.js';
+import {shootBullet, tryShootHealingBullet} from './bullets.js';
+
+// Track active touches for multi-finger shooting
+const activeTouches = new Map(); // Map of touchId -> {pos, lastShotTime}
+
+
+// Handle touchstart event
+function handleTouchStart(event) {
+	if (state.gameOver || getPaused() || state.snake) return;
+	
+	for (const touch of event.touches) {
+		const worldPos = screenToWorld(vec2(touch.clientX, touch.clientY));
+		activeTouches.set(touch.identifier, {
+			pos: worldPos,
+			lastShotTime: 0,
+		});
+		
+		// Try healing shot on touch start
+		tryShootHealingBullet(worldPos);
+	}
+}
+
+// Handle touchmove event
+function handleTouchMove(event) {
+	if (state.gameOver || getPaused() || state.snake) return;
+	
+	for (const touch of event.touches) {
+		const worldPos = screenToWorld(vec2(touch.clientX, touch.clientY));
+		
+		if (activeTouches.has(touch.identifier)) {
+			const touchData = activeTouches.get(touch.identifier);
+			touchData.pos = worldPos;
+			
+			// Shoot continuously for each active touch
+			shootBullet(worldPos);
+		}
+	}
+}
+
+// Handle touchend event
+function handleTouchEnd(event) {
+	for (const touch of event.changedTouches) {
+		activeTouches.delete(touch.identifier);
+	}
+}
+
+// Setup touch event listeners
+export function setupTouchControls() {
+	mainCanvas.addEventListener('touchstart', handleTouchStart, { passive: true });
+	mainCanvas.addEventListener('touchmove', handleTouchMove, { passive: true });
+	mainCanvas.addEventListener('touchend', handleTouchEnd, { passive: true });
+	mainCanvas.addEventListener('touchcancel', handleTouchEnd, { passive: true });
+}
+
+// Cleanup touch event listeners
+export function removeTouchControls() {
+	mainCanvas.removeEventListener('touchstart', handleTouchStart);
+	mainCanvas.removeEventListener('touchmove', handleTouchMove);
+	mainCanvas.removeEventListener('touchend', handleTouchEnd);
+	mainCanvas.removeEventListener('touchcancel', handleTouchEnd);
+}
+
 let swipeUp = false;
 let swipeDown = false;
 let swipeLeft = false;

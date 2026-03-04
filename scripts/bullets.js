@@ -8,21 +8,21 @@ import {hasClearShot} from './stations.js';
 import {handleCollisionWithWalls} from './walls.js';
 import {GUNS, GUN_BY_LEVEL} from './guns.js';
 
-export function shootBullet() {
+export function shootBullet(targetPos = mousePos) {
 	const alive = state.stations.filter(s => s.hp > 0 && !s.isMedic);
 	if (!alive.length) {
 		return;
 	}
-	// Find stations with a clear shot to the mouse
-	const clearShot = alive.filter(s => hasClearShot(s.pos, mousePos));
+	// Find stations with a clear shot to the target
+	const clearShot = alive.filter(s => hasClearShot(s.pos, targetPos));
 
 	// Pick closest among clear-shot stations, or fall back to closest overall
 	const candidates = clearShot.length ? clearShot : alive;
 	let best = candidates[0];
 
-	let minDist = mousePos.distance(best.pos);
+	let minDist = targetPos.distance(best.pos);
 	for (const s of candidates) {
-		const d = mousePos.distance(s.pos);
+		const d = targetPos.distance(s.pos);
 		if (d < minDist) {
 			minDist = d;
 			best = s;
@@ -35,8 +35,8 @@ export function shootBullet() {
 		return;
 	}
 
-	const dirToMouse = mousePos.subtract(best.pos).normalize();
-	const baseAngle = Math.atan2(dirToMouse.y, dirToMouse.x);
+	const dirToTarget = targetPos.subtract(best.pos).normalize();
+	const baseAngle = Math.atan2(dirToTarget.y, dirToTarget.x);
 
 	for (let i = 0; i < gun.bullets.length; i++) {
 		const bulletDef = gun.bullets[i];
@@ -124,7 +124,7 @@ export function updateBullets() {
 
 
 // Returns true if a healing bullet was fired, false otherwise.
-export function tryShootHealingBullet(clickPos) {
+export function tryShootHealingBullet(clickPos = mousePos) {
 	if (state.level < 3) return false;
 
 	const medic = state.stations.find(s => s.isMedic && s.hp > 0);

@@ -221,7 +221,7 @@ export function gameRenderPost() {
 		drawTextScreen(
 			intro,
 			vec2(centerX, centerY),
-			26,
+			defaultFontSize * 1.8,
 			WHITE,
 			0,
 			BLACK,

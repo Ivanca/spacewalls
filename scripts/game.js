@@ -2,7 +2,7 @@ import {setCameraPos, setCameraScale, engineInit, setInputPreventDefault, isTouc
 import {worldSize} from './constants.js';
 import {imagesSrcArray} from './assets.js';
 import {resetGame, gameUpdate, gameUpdatePost, state} from './state.js';
-import {setupGestureControls, resetTap} from './input.js';
+import {setupGestureControls, resetTap, setupTouchControls} from './input.js';
 import {gameRender, gameRenderPost} from './render.js';
 import {initPauseMenu} from './pause-menu.js';
 
@@ -41,6 +41,7 @@ function startEngine() {
 function gameInit() {
 	setInputPreventDefault(false);
 	setupGestureControls();
+	setupTouchControls();
 	setCameraPos(worldSize.scale(0.5));
 	setCameraScale(TILE_SIZE());
 
