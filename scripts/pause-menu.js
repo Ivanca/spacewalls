@@ -9,7 +9,6 @@ const pauseMenu       = document.getElementById('pause-menu');
 const pauseResumeBtn  = document.getElementById('pause-resume-btn');
 const pauseRestartBtn = document.getElementById('pause-restart-btn');
 const pauseAboutBtn   = document.getElementById('pause-about-btn');
-const pauseExitBtn    = document.getElementById('pause-exit-btn');
 const outroOverlayEl  = document.getElementById('outro-overlay');
 const outroBtnRow     = document.getElementById('outro-btn-row');
 const creditsPanel    = document.getElementById('credits-panel');
@@ -55,29 +54,24 @@ export function initPauseMenu() {
 	pauseAboutBtn.addEventListener('click', () => {
 		closePauseMenu();
 		// Populate and show credits inside the outro-overlay
-		if (creditsText) creditsText.textContent = credits.trim();
-		if (creditsPanel) creditsPanel.style.display = 'flex';
-		if (outroOverlayEl) {
-			outroOverlayEl.classList.add('credits-mode');
-			outroOverlayEl.style.display = 'block';
-		}
+		creditsText.textContent = credits.trim();
+		creditsPanel.style.display = 'flex';
+		outroOverlayEl.classList.add('credits-mode');
+		outroOverlayEl.style.display = 'block';
+		creditsText.after(outroBtnRow); // Move buttons to the end of the credits
+		
 	});
 
 	aboutCloseBtn.addEventListener('click', () => {
 		// Restore outro-overlay to its default state
-		if (creditsPanel) creditsPanel.style.display = 'none';
-		if (outroBtnRow) outroBtnRow.style.display = '';
-		if (outroOverlayEl) {
-			outroOverlayEl.classList.remove('credits-mode');
-			outroOverlayEl.style.display = 'none';
-		}
+		creditsPanel.style.display = 'none';
+		outroOverlayEl.appendChild(outroBtnRow); 
+		outroOverlayEl.classList.remove('credits-mode');
+		outroOverlayEl.style.display = 'none';
 		// Re-open pause menu (game stays paused)
 		pauseMenu.style.display = 'flex';
 	});
 
-	pauseExitBtn.addEventListener('click', () => {
-		window.close();
-	});
 }
 
 export function showPauseButton() {

@@ -33,7 +33,7 @@ body {
 	background: #05050d;
 	color: #00e8ff;
 	font-family: PressStart2P, monospace;
-	font-size: clamp(10px, 3vw, 18px);
+	    font-size: 1cqi;
 	line-height: 2em;
 	text-align: center;
 	padding: 24px;
@@ -75,7 +75,11 @@ body {
 }
 
 .credits-mode #outro-btn-row {
-	top: 58lvh;
+    position: relative;
+    left: auto;
+    text-align: center;
+    margin: 0 auto;
+    transform: none;
 }
 
 .outro-btn {
@@ -221,8 +225,7 @@ body {
 	align-items: center;
 	gap: 24px;
 	padding: 0 24px;
-	width: 80%;
-	max-width: 680px;
+	width: 70%;
 }
 
 #outro-overlay.credits-mode {
@@ -234,7 +237,7 @@ body {
 #credits-text {
 	font-family: PressStart2P, monospace;
 	color: #e0f8ff;
-	font-size: clamp(8px, 1.4cqi, 13px);
+	font-size: 1cqi;
 	line-height: 2.2em;
 	text-align: center;
 	text-shadow: 0 0 6px #00e8ff88;
@@ -252,7 +255,6 @@ body {
 	text-shadow: 0 0 8px #00e8ff;
 	box-shadow: 0 0 14px #00e8ff55;
 	touch-action: manipulation;
-	margin-top: 3cqi;
 }
 
 </style>
@@ -277,7 +279,6 @@ body {
 			<button id="pause-resume-btn" class="pause-menu-btn">Resume</button>
 			<button id="pause-restart-btn" class="pause-menu-btn">Restart Level</button>
 			<button id="pause-about-btn" class="pause-menu-btn">About the Author</button>
-			<button id="pause-exit-btn" class="pause-menu-btn pause-menu-btn--red">Exit</button>
 		</div>
 	</div>
 
