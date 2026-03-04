@@ -27,11 +27,16 @@ function handleTouchStart(event) {
 // Handle touchmove event
 function handleTouchMove(event) {
 	if (state.gameOver || getPaused() || state.snake) return;
+    let touchCounter = 0;
 	
 	for (const touch of event.touches) {
 		const worldPos = screenToWorld(vec2(touch.clientX, touch.clientY));
 		
 		if (activeTouches.has(touch.identifier)) {
+            touchCounter++;
+            if (touchCounter > 2) {
+                return; // Limit to 2 simultaneous touches
+            }
 			const touchData = activeTouches.get(touch.identifier);
 			touchData.pos = worldPos;
 			
