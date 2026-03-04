@@ -130,14 +130,14 @@ export function gameRender() {
 		// drawRect(state.snake[0].add(vec2(-4.4, 1)), vec2(20, 1.2), YELLOW);
 	}
 
-	const invFrame = Math.floor(Date.now() / 200) % 4;
+	const invFrame = Math.floor(Date.now() / 200) % 6;
 
 	for (const inv of state.invaders) {
 		// Rotate it 90 extra
 		const angle = Math.atan2(-inv.dir.y, inv.dir.x) - (Math.PI / 2);
 		inv.frameOffset ||= invFrame;
 		if (!getPaused()) {
-			inv.frame = (inv.frameOffset + invFrame) % 4;
+			inv.frame = (inv.frameOffset + invFrame) % 6;
 		}
 
 		// DrawRect(inv.pos, inv.size, rgb(1, 0.2, 0.2));
@@ -242,7 +242,7 @@ export function gameRenderPost() {
 	// DrawTextScreen('Walls: ' + state.wallCount + '/' + state.maxWalls, vec2(200, 40), 30, WHITE, 0, BLACK, 'center', gameTextFont);
 
 	if (state.tempTitleTimer > 0) {
-		drawTextScreen(state.tempTitle, vec2(mainCanvasSize.x / 2, 180), defaultFontSize * 4, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawTextScreen(state.tempTitle, vec2(mainCanvasSize.x / 2, 180), defaultFontSize * 3, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 
 	if (!state.gameWon && (state.wallCount >= state.maxWalls || state.buildingPhase)) {
@@ -296,15 +296,26 @@ export function gameRenderPost() {
 	}
 
 	if (state.snake && !state.hasBuiltWall) {
-		drawTextScreen(buildHintText, vec2(mainCanvasSize.x / 2, mainCanvasSize.y - 40), defaultFontSize, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawTextScreen(buildHintText, vec2(mainCanvasSize.x / 2, mainCanvasSize.y * 0.9), defaultFontSize * 1.2, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 	if (!state.snake && !getPaused() && !state.hasShot && state.invaders.length > 0) {
-		drawTextScreen(shootHintText, vec2(mainCanvasSize.x / 2, mainCanvasSize.y - 40), defaultFontSize, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawTextScreen(shootHintText, vec2(mainCanvasSize.x / 2, mainCanvasSize.y * 0.9), defaultFontSize * 1.2, WHITE, 0, BLACK, 'center', gameTextFont);
 	}
 
 	if (state.gameOver) {
 		drawTextScreen('GAME OVER', mainCanvasSize.scale(0.5), defaultFontSize * 4.5, WHITE, 0, BLACK, 'center', gameTextFont);
-		drawTextScreen(actionText + ' TO RESTART', vec2(mainCanvasSize.x / 2, (mainCanvasSize.y / 2) + 60), defaultFontSize * 1.35, WHITE, 0, BLACK, 'center', gameTextFont);
+		drawTextScreen(actionText + ' TO RESTART', vec2(mainCanvasSize.x / 2, mainCanvasSize.y * 0.6), defaultFontSize * 1.35, WHITE, 0, BLACK, 'center', gameTextFont);
+		let hint = '';
+		if (state.level === 1) {
+			hint = 'Hint: The aliens attack the stations\ncloser to the borders first!';
+		} else {
+			if (state.gameOverTime % 2 === 0) {
+				hint = "Hint: The aliens coming from the\nblack hole attack the closer stations first!";
+			} else {
+				hint = "Hint: After 50 kills a station\ngets a nice weapon upgrade!";
+			}
+		}
+		drawTextScreen(hint, vec2(mainCanvasSize.x / 2, mainCanvasSize.y * 0.9), defaultFontSize, WHITE, 0, BLACK, 'center', gameTextFont, '', window.innerWidth * 0.8, 1.5);
 	}
 
 	if (state.gameWon && state.level === 1) {

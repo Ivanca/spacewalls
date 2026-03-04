@@ -1,16 +1,16 @@
 import {vec2, isTouchDevice} from '../littlejs.esm.js';
 
 // Mutable – x/y are filled in by game.js before engineInit based on screen size
+// Change to 2 or 3 to skip straight to that level (useful for testing)
+export const startingLevel = 3;
 export const worldSize = vec2(50, 38);
 export const stationSize = vec2(3, 2);
-export const extraWallScore = 150;
+export const extraWallScore = 130;
 export const moveDelay = 0.012;
-export const promotedThreshold = 75;
+export const promotedThreshold = 50;
 export const gameTextFont = 'PressStart2P';
 export const introGoodLuckDuration = 2.2;
 export const blackHoleRadius = 1.5;
-// Change to 2 or 3 to skip straight to that level (useful for testing)
-export const startingLevel = 1;
 const actionText = isTouchDevice ? 'TAP' : 'PRESS SPACE'; 
 export const introLines = `
 Greetings General, first we enter the building stage
@@ -26,7 +26,11 @@ Well done General, but another fleet of stations
 need your help, unfortunately a black hole has
 awakened in the middle of them and our intel says
 that invaders will pour from it, besides coming
-from random directions as usual, prepare accordingly.
+from random directions as usual, but there is good
+news, a bigger budget for longer walls has been
+approved, that should help with this new matter,
+or should I say antimatter? haha, sorry
+
 
 ${actionText} TO START LEVEL 2
 `;
@@ -35,10 +39,9 @@ Impressive work General, but our last and hardest
 mission awaits. TWO black holes have awakened and
 invaders will pour from both, but there is good news!
 A REPAIR STATION has joined the fleet and it can fire
-repair capsules once every 2 seconds, you can think
+repair capsules once every 3 seconds, you can think
 of them as bullets that heal, tap any damaged station
-to fire them towards them, not only that but we also
-have received more funding for longer walls
+to fire them towards them
 
 ${actionText} TO START LEVEL 3
 `;

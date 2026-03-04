@@ -135,7 +135,7 @@ export function updateStations() {
 	const maxWallSolveIterations = 10;
 	const bias = 0.0005;
 
-	const cooldown = 2; // seconds
+	const cooldown = 3; // seconds
 	const medic = state.stations.find(s => s.isMedic && s.hp > 0);
 
 	if (medic && !state.buildingPhase) {
@@ -143,7 +143,7 @@ export function updateStations() {
 	}
 
 	const resolveWorldBounds = s => {
-		const center = s.pos.add(vec2(0.5, 0.5));
+		const center = s.pos;
 
 		if (center.x - halfW < 0) {
 			center.x = halfW;
@@ -259,7 +259,7 @@ export function updateStations() {
 		const validObstacles = [...wallPieces, ...otherStations];
 
 		for (let iter = 0; iter < maxWallSolveIterations; iter++) {
-			const center = s.pos.add(vec2(0.5, 0.5));
+			const center = s.pos;
 
 			const overlapping = validObstacles.filter(p => isOverlapping(center, stationSize, p.pos, p.size));
 			if (!overlapping.length) {

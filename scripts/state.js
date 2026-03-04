@@ -1,4 +1,4 @@
-import {vec2, isTouchDevice} from '../littlejs.esm.js';
+import {vec2, isTouchDevice, time} from '../littlejs.esm.js';
 import {
 	timeDelta, keyWasPressed, getPaused, setPaused, mouseIsDown, mouseWasPressed, mousePos,
 } from '../littlejs.esm.js';
@@ -44,6 +44,7 @@ export const state = {
 	hasShot: false,
 	maxInvaders: 1000,
 	wallLength: 90,
+	gameOverTime: 0,
 };
 
 export function resetGame(resetLevel = true, skipIntro = false) {
@@ -82,6 +83,7 @@ export function resetGame(resetLevel = true, skipIntro = false) {
 		const sumPos = state.stations.reduce((acc, s) => acc.add(s.pos), vec2(0, 0));
 		const center = sumPos.scale(1 / state.stations.length);
 		if (state.level === 2) {
+			state.wallLength = 110;
 			state.blackHoles = [{pos: center}];
 			state.tempTitle = 'LEVEL 2 - THE BLACK HOLE AWAKENS';
 			state.tempTitleTimer = 3;
@@ -95,7 +97,11 @@ export function resetGame(resetLevel = true, skipIntro = false) {
 			fixMedicStationPosition();
 		}
 	}
-	setPaused(true);
+	if (skipIntro) {
+		setPaused(false);
+	} else {
+		setPaused(true);
+	}
 }
 
 function findBlackHolePositions(center) {
@@ -256,6 +262,8 @@ export function gameUpdate() {
 
 	if (state.stations.every(s => s.hp <= 0)) {
 		state.gameOver = true;
+		state.gameOverTime = Math.floor(time);
+		console.log('Game over! All stations destroyed.', state.gameOverTime);
 		setPaused(true);
 	}
 }

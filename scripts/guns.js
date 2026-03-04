@@ -20,7 +20,7 @@ export const GUNS = {
 
 	rapid: {
 		id: 'rapid',
-		fireRate: 0.1,
+		fireRate: 0.15,
 		bullets: [
 			{angleOffset: 0, speed: 0.6},
 		],

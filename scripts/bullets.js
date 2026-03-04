@@ -92,11 +92,15 @@ export function updateBullets() {
 						state.killScore++;
 						if (l.sourceStation) {
 							l.sourceStation.kills++;
-							const level = Math.floor(l.sourceStation.kills / promotedThreshold);
+							let level = l.sourceStation.kills >= promotedThreshold ? 1 : 0;
+							if (l.sourceStation.kills >= promotedThreshold * 3) {
+								level = 2;
+							}
 							if (level > l.sourceStation.level && level < 3) {
 								l.sourceStation.level = level;
 								l.sourceStation.gun = GUN_BY_LEVEL[level] ?? l.sourceStation.gun;
 								l.sourceStation.promotedTime = time;
+								l.sourceStation.hp = Math.min(l.sourceStation.hp + 2, l.sourceStation.maxHp);
 							}
 						}
 					}
