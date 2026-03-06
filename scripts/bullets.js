@@ -90,6 +90,9 @@ export function updateBullets() {
 					inv.hp -= 2;
 					if (wasAlive && inv.hp <= 0) {
 						state.killScore++;
+						state.explosions.push({
+							pos: inv.pos.copy(), frame: 0, start: Date.now(),
+						});
 						if (l.sourceStation) {
 							l.sourceStation.kills++;
 							let level = l.sourceStation.kills >= promotedThreshold ? 1 : 0;

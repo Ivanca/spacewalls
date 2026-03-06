@@ -154,9 +154,7 @@ export function gameRender() {
 		// DrawRect(l.pos, vec2(0.3, 0.3), rgb(1, 1, 0.3));
 		const bulletColor = l.healing ? rgb(0.15, 1, 0.45) : WHITE;
 		let bulletSize = l.healing ? vec2(0.5, 0.5) : vec2(0.3, 0.3);
-		if (isTouchDevice) {
-			bulletSize = bulletSize.scale(2);
-		}
+		bulletSize = bulletSize.scale(2);
 		drawTile(l.pos, bulletSize, tile(0, vec2(24, 24), imgs.bullet), bulletColor, angle);
 	}
 
